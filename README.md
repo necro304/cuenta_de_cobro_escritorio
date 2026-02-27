@@ -1,18 +1,68 @@
-# Vue 3 + TypeScript + Vite
+# Cuenta de Cobro Electron
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Aplicación de escritorio moderna y eficiente para la gestión de cuentas de cobro, construida con **Electron**, **Vue 3**, **Vite**, **TypeScript** y **Tailwind CSS**.
 
-## Recommended IDE Setup
+## 🚀 Características
 
-- [VS Code](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin).
+- **Gestión de Clientes:** Mantén un registro organizado de tus clientes.
+- **Editor de Cuentas de Cobro:** Crea y edita cuentas de cobro de manera intuitiva.
+- **Generación de PDF:** Imprime o guarda tus cuentas de cobro en formato PDF.
+- **Base de Datos Local:** Almacenamiento seguro y rápido mediante SQLite (better-sqlite3).
+- **Interfaz Moderna:** Diseño elegante y responsive utilizando Shadcn UI.
 
-## Type Support For `.vue` Imports in TS
+## 🛠️ Tecnologías
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin) to make the TypeScript language service aware of `.vue` types.
+- [Electron](https://www.electronjs.org/)
+- [Vue 3](https://vuejs.org/)
+- [Vite](https://vitejs.dev/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [SQLite (better-sqlite3)](https://github.com/WiseLibs/better-sqlite3)
 
-If the standalone TypeScript plugin doesn't feel fast enough to you, Volar has also implemented a [Take Over Mode](https://github.com/johnsoncodehk/volar/discussions/471#discussioncomment-1361669) that is more performant. You can enable it by the following steps:
+## 📦 Instalación y Desarrollo
 
-1. Disable the built-in TypeScript Extension
-   1. Run `Extensions: Show Built-in Extensions` from VSCode's command palette
-   2. Find `TypeScript and JavaScript Language Features`, right click and select `Disable (Workspace)`
-2. Reload the VSCode window by running `Developer: Reload Window` from the command palette.
+### Requisitos previos
+
+- [Node.js](https://nodejs.org/) (versión recomendada LTS)
+- npm o yarn
+
+### Pasos para empezar
+
+1.  **Clonar el repositorio:**
+    ```bash
+    git clone https://github.com/necro304/cuenta_de_cobro_escritorio.git
+    cd cuenta_de_cobro_escritorio
+    ```
+
+2.  **Instalar dependencias:**
+    ```bash
+    npm install
+    ```
+
+3.  **Ejecutar en modo desarrollo:**
+    ```bash
+    npm run dev
+    ```
+
+4.  **Construir la aplicación:**
+    ```bash
+    npm run build
+    ```
+
+## 🤝 Contribuir
+
+¡Las contribuciones son bienvenidas! Siéntete libre de abrir un issue o enviar un pull request para mejorar este proyecto.
+
+1.  Haz un Fork del proyecto.
+2.  Crea una rama para tu característica (`git checkout -b feature/AmazingFeature`).
+3.  Haz commit de tus cambios (`git commit -m 'Add some AmazingFeature'`).
+4.  Push a la rama (`git push origin feature/AmazingFeature`).
+5.  Abre un Pull Request.
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT - mira el archivo [LICENSE](LICENSE) para detalles.
+
+---
+
+Desarrollado con ❤️ por [necro304](https://github.com/necro304)

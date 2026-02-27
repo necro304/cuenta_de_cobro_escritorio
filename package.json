@@ -1,7 +1,17 @@
 {
   "name": "cuenta-cobro",
-  "private": true,
   "version": "1.0.4",
+  "description": "Aplicación de escritorio para la gestión de cuentas de cobro generada con Electron, Vue 3 y Vite.",
+  "author": "necro304",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/necro304/cuenta_de_cobro_escritorio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/necro304/cuenta_de_cobro_escritorio/issues"
+  },
+  "homepage": "https://github.com/necro304/cuenta_de_cobro_escritorio#readme",
   "type": "module",
   "scripts": {
     "dev": "vite",
