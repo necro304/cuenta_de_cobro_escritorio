@@ -6,6 +6,7 @@ export interface ElectronAPI {
   dbRun: (sql: string, params?: DbParam[]) => Promise<{ changes: number; lastInsertRowid: number | bigint }>
   dbBackup: () => Promise<{ success: boolean; message: string }>
   dbRestore: () => Promise<{ success: boolean; message: string }>
+  checkForUpdates: () => Promise<any>
 }
 
 declare global {

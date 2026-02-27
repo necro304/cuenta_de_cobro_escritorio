@@ -4,6 +4,13 @@
   "appId": "com.cuentacobro.app",
   "asar": true,
   "productName": "CuentaCobro",
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "necro304",
+      "repo": "cuenta_de_cobro_escritorio"
+    }
+  ],
   "directories": {
     "output": "release/${version}"
   },

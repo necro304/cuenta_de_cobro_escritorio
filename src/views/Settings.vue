@@ -9,6 +9,19 @@ const { toast } = useToast()
 
 const appVersion = '1.0.0'
 
+const handleCheckUpdates = async () => {
+  try {
+    const result = await window.electronAPI.checkForUpdates()
+    // The autoUpdater events in main process will handle the dialogs if an update is found.
+    // We can just show a toast if it's already updated.
+    if (result && result.updateInfo && result.updateInfo.version === appVersion) {
+      toast({ title: 'Al día', description: 'Ya tienes la última versión instalada.' })
+    }
+  } catch (error: any) {
+    toast({ title: 'Error', description: 'No se pudo buscar actualizaciones.', variant: 'destructive' })
+  }
+}
+
 const handleBackup = async () => {
   try {
     const result = await window.electronAPI.dbBackup()
@@ -60,6 +73,9 @@ const resetDatabase = async () => {
       <CardContent class="space-y-2 text-sm text-muted-foreground">
         <p>Versión: <span class="font-medium text-foreground">{{ appVersion }}</span></p>
         <p>Aplicación para generación de cuentas de cobro.</p>
+        <Button variant="outline" size="sm" class="mt-2" @click="handleCheckUpdates">
+          Buscar actualizaciones
+        </Button>
       </CardContent>
     </Card>
 

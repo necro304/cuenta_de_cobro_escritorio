@@ -8,4 +8,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   dbRun: (sql: string, params?: DbParam[]) => ipcRenderer.invoke('db-run', sql, params),
   dbBackup: () => ipcRenderer.invoke('db-backup'),
   dbRestore: () => ipcRenderer.invoke('db-restore'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
 })

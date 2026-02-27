@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -109,5 +110,42 @@ app.whenReady().then(() => {
     return { success: false, message: 'Operación cancelada.' }
   })
 
+  ipcMain.handle('check-for-updates', async () => {
+    const result = await autoUpdater.checkForUpdates()
+    return result
+  })
+
   createWindow()
+
+  // --- Auto Updater ---
+  autoUpdater.checkForUpdatesAndNotify()
+
+  autoUpdater.on('update-available', () => {
+    if (win) {
+      dialog.showMessageBox(win, {
+        type: 'info',
+        title: 'Actualización disponible',
+        message: 'Una nueva versión está disponible. Se descargará en segundo plano.',
+      })
+    }
+  })
+
+  autoUpdater.on('update-downloaded', () => {
+    if (win) {
+      dialog.showMessageBox(win, {
+        type: 'info',
+        title: 'Actualización lista',
+        message: 'La actualización ha sido descargada. Se instalará al reiniciar la aplicación.',
+        buttons: ['Reiniciar ahora', 'Más tarde']
+      }).then((result) => {
+        if (result.response === 0) {
+          autoUpdater.quitAndInstall()
+        }
+      })
+    }
+  })
+
+  autoUpdater.on('error', (err) => {
+    console.error('Error in auto-updater: ', err)
+  })
 })
