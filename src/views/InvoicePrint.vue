@@ -20,10 +20,6 @@ const totalPaid = computed(() => {
   return payments.value.reduce((sum, p) => sum + p.amount, 0)
 })
 
-const balance = computed(() => {
-  return Math.max(0, (invoice.value.total ?? 0) - totalPaid.value)
-})
-
 const loadData = async () => {
   const profileData = await window.electronAPI.dbGet<Profile>('SELECT * FROM profile WHERE id = 1')
   if (profileData) profile.value = profileData

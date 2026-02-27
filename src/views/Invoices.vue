@@ -20,7 +20,6 @@ const router = useRouter()
 const { toast } = useToast()
 const invoices = ref<Invoice[]>([])
 const isLoading = ref(true)
-const burstRef = ref<any>(null)
 
 // Search, Filter and Pagination State
 const searchQuery = ref('')
@@ -196,9 +195,8 @@ onMounted(loadInvoices)
       
       <button 
         class="bg-foreground text-background font-bold px-6 py-4 uppercase tracking-wider border-[3px] border-foreground hover:-translate-y-2 hover:-translate-x-2 hover:shadow-[8px_8px_0_0_hsl(var(--accent))] transition-all flex items-center justify-center gap-3 active:translate-y-0 active:translate-x-0 active:shadow-none relative overflow-hidden" 
-        @click="() => { burstRef?.trigger(); setTimeout(() => router.push('/invoices/new'), 150) }"
+        @click="() => { setTimeout(() => router.push('/invoices/new'), 150) }"
       >
-        <ClickBurst ref="burstRef" />
         <Plus class="h-5 w-5" />
         <span>Nueva Cuenta</span>
       </button>

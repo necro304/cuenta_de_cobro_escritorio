@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { FileText, Users, DollarSign, Activity } from 'lucide-vue-next'
+import { FileText, Users, DollarSign } from 'lucide-vue-next'
 import RetroSpinner from '@/components/ui/animations/RetroSpinner.vue'
 import DataWaves from '@/components/ui/animations/DataWaves.vue'
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'

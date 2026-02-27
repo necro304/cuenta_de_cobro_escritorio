@@ -29,12 +29,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
-import ClickBurst from '@/components/ui/animations/ClickBurst.vue'
 import { Plus, Pencil, Trash2, CheckCircle2 } from 'lucide-vue-next'
 import type { Profile, BankAccount } from '@/types'
 
 const { toast } = useToast()
-const burstRef = ref<any>(null)
 
 const profile = ref({
   name: '',
@@ -80,7 +78,7 @@ const saveProfile = async () => {
   try {
     await window.electronAPI.dbRun(
       'UPDATE profile SET name = ?, document_id = ?, address = ?, phone = ?, email = ?, bank_info = ? WHERE id = 1',
-      [profile.value.name, profile.value.document_id, profile.value.address, profile.value.phone, profile.value.email, profile.value.bank_info],
+      [profile.value.name || '', profile.value.document_id || '', profile.value.address || '', profile.value.phone || '', profile.value.email || '', profile.value.bank_info || ''],
     )
     toast({
       title: 'Perfil actualizado',
@@ -115,7 +113,7 @@ const saveBankAccount = async () => {
     if (editingAccount.value.id) {
       await window.electronAPI.dbRun(
         'UPDATE bank_accounts SET bank = ?, account_type = ?, account_number = ? WHERE id = ?',
-        [editingAccount.value.bank, editingAccount.value.account_type, editingAccount.value.account_number, editingAccount.value.id]
+        [editingAccount.value.bank || '', editingAccount.value.account_type || '', editingAccount.value.account_number || '', editingAccount.value.id]
       )
     } else {
       // If it's the first account, make it default
@@ -124,7 +122,7 @@ const saveBankAccount = async () => {
       
       await window.electronAPI.dbRun(
         'INSERT INTO bank_accounts (bank, account_type, account_number, is_default) VALUES (?, ?, ?, ?)',
-        [editingAccount.value.bank, editingAccount.value.account_type, editingAccount.value.account_number, isDefault]
+        [editingAccount.value.bank || '', editingAccount.value.account_type || '', editingAccount.value.account_number || '', isDefault]
       )
     }
     
