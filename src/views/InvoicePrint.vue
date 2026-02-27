@@ -16,10 +16,6 @@ const items = ref<InvoiceItem[]>([])
 const payments = ref<InvoicePayment[]>([])
 const bankAccount = ref<BankAccount | null>(null)
 
-const totalPaid = computed(() => {
-  return payments.value.reduce((sum, p) => sum + p.amount, 0)
-})
-
 const loadData = async () => {
   const profileData = await window.electronAPI.dbGet<Profile>('SELECT * FROM profile WHERE id = 1')
   if (profileData) profile.value = profileData

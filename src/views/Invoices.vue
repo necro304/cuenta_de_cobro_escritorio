@@ -4,7 +4,6 @@ import { Plus, Trash2, Printer, Pencil, Wallet, Search, Filter, ChevronLeft, Che
 import { useRouter } from 'vue-router'
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
 import RetroSpinner from '@/components/ui/animations/RetroSpinner.vue'
-import ClickBurst from '@/components/ui/animations/ClickBurst.vue'
 import {
   Dialog,
   DialogContent,
@@ -176,6 +175,12 @@ const deleteInvoice = async (id: number) => {
   }
 }
 
+const handleNewInvoice = () => {
+  setTimeout(() => {
+    router.push('/invoices/new')
+  }, 150)
+}
+
 onMounted(loadInvoices)
 </script>
 
@@ -195,7 +200,7 @@ onMounted(loadInvoices)
       
       <button 
         class="bg-foreground text-background font-bold px-6 py-4 uppercase tracking-wider border-[3px] border-foreground hover:-translate-y-2 hover:-translate-x-2 hover:shadow-[8px_8px_0_0_hsl(var(--accent))] transition-all flex items-center justify-center gap-3 active:translate-y-0 active:translate-x-0 active:shadow-none relative overflow-hidden" 
-        @click="() => { setTimeout(() => router.push('/invoices/new'), 150) }"
+        @click="handleNewInvoice"
       >
         <Plus class="h-5 w-5" />
         <span>Nueva Cuenta</span>
