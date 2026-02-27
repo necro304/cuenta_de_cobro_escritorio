@@ -1,0 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Off-white "newsprint" background */
+    --background: 40 33% 96%;
+    --foreground: 0 0% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 4%;
+
+    --primary: 0 0% 4%;
+    --primary-foreground: 40 33% 96%;
+
+    --secondary: 40 10% 90%;
+    --secondary-foreground: 0 0% 4%;
+
+    --muted: 40 10% 90%;
+    --muted-foreground: 0 0% 40%;
+
+    /* Bright neon accent (e.g. Electric Blue) */
+    --accent: 230 100% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Pure brutalist red */
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Pitch black borders */
+    --border: 0 0% 4%;
+    --input: 0 0% 4%;
+    --ring: 0 0% 4%;
+
+    /* Absolutely no border radius for that raw industrial look */
+    --radius: 0rem;
+  }
+
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 40 33% 96%;
+
+    --card: 0 0% 4%;
+    --card-foreground: 40 33% 96%;
+
+    --popover: 0 0% 4%;
+    --popover-foreground: 40 33% 96%;
+
+    --primary: 40 33% 96%;
+    --primary-foreground: 0 0% 4%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 40 33% 96%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 230 100% 65%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 100% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 33% 96%;
+    --input: 40 33% 96%;
+    --ring: 40 33% 96%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'IBM Plex Mono', monospace;
+    /* Subtle dot matrix background */
+    background-image: radial-gradient(circle, hsl(var(--foreground) / 0.1) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: 0 0;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-variation-settings: "opsz" 96;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+  }
+  
+  /* Industrial selection color */
+  ::selection {
+    background-color: hsl(var(--accent));
+    color: white;
+  }
+}
+
+@layer utilities {
+  /* Brutalist hard shadows */
+  .shadow-brutal {
+    box-shadow: 4px 4px 0px 0px hsl(var(--foreground));
+  }
+  .shadow-brutal-lg {
+    box-shadow: 8px 8px 0px 0px hsl(var(--foreground));
+  }
+  .shadow-brutal-sm {
+    box-shadow: 2px 2px 0px 0px hsl(var(--foreground));
+  }
+  .dark .shadow-brutal,
+  .dark .shadow-brutal-lg,
+  .dark .shadow-brutal-sm {
+    box-shadow: none;
+    border-bottom: 2px solid hsl(var(--border));
+    border-right: 2px solid hsl(var(--border));
+  }
+  
+  .hover-brutal:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px 0px hsl(var(--foreground));
+  }
+  .active-brutal:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0px 0px 0px 0px hsl(var(--foreground));
+  }
+}
