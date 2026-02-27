@@ -25,8 +25,8 @@ interface ClickBurstInstance {
 }
 const burstRef = ref<ClickBurstInstance | null>(null)
 
-const setBurstRef = (el: any) => {
-  burstRef.value = el
+const setBurstRef = (el: unknown) => {
+  burstRef.value = el as ClickBurstInstance
 }
 
 const isDialogOpen = ref(false)

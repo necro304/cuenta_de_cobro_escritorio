@@ -20,8 +20,8 @@ interface ClickBurstInstance {
 }
 const burstRefs = ref<(ClickBurstInstance | null)[]>([])
 
-const setBurstRef = (el: any, index: number) => {
-  burstRefs.value[index] = el
+const setBurstRef = (el: unknown, index: number) => {
+  burstRefs.value[index] = el as ClickBurstInstance
 }
 
 const navItems = [
