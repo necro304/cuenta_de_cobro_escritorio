@@ -20,6 +20,10 @@ interface ClickBurstInstance {
 }
 const burstRefs = ref<(ClickBurstInstance | null)[]>([])
 
+const setBurstRef = (el: any, index: number) => {
+  burstRefs.value[index] = el
+}
+
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard, id: 'CMD_01' },
   { name: 'Cuentas', path: '/invoices', icon: FileText, id: 'CMD_02' },
@@ -65,7 +69,7 @@ const navigate = (path: string, index: number) => {
           ]"
           @click="navigate(item.path, index)"
         >
-          <ClickBurst :ref="(el) => burstRefs[index] = el" />
+          <ClickBurst :ref="(el) => setBurstRef(el, index)" />
           <div class="flex items-center gap-3">
             <component :is="item.icon" class="h-5 w-5" />
             <span>{{ item.name }}</span>
@@ -85,7 +89,7 @@ const navigate = (path: string, index: number) => {
           ]"
           @click="navigate('/settings', navItems.length)"
         >
-          <ClickBurst :ref="(el) => burstRefs[navItems.length] = el" />
+          <ClickBurst :ref="(el) => setBurstRef(el, navItems.length)" />
           <div class="flex items-center gap-3">
             <Settings class="h-5 w-5" />
             <span>Config</span>

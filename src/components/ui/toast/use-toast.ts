@@ -77,7 +77,8 @@ const state = ref<State>({
 })
 
 function dispatch(action: Action) {
-  const currentToasts = state.value.toasts
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currentToasts = state.value.toasts as any[]
 
   switch (action.type) {
     case actionTypes.ADD_TOAST: {
