@@ -15,7 +15,10 @@ import {
 const router = useRouter()
 const activePath = computed(() => router.currentRoute.value.path)
 
-const burstRefs = ref<any[]>([])
+interface ClickBurstInstance {
+  trigger: () => void
+}
+const burstRefs = ref<(ClickBurstInstance | null)[]>([])
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard, id: 'CMD_01' },

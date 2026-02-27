@@ -74,8 +74,8 @@ app.whenReady().then(() => {
       try {
         fs.copyFileSync(dbPath, filePath)
         return { success: true, message: 'Respaldo guardado exitosamente.' }
-      } catch (err: any) {
-        return { success: false, message: err.message }
+      } catch (err: unknown) {
+        return { success: false, message: (err as Error).message }
       }
     }
     return { success: false, message: 'Operación cancelada.' }
@@ -103,8 +103,8 @@ app.whenReady().then(() => {
         app.exit(0)
         
         return { success: true, message: 'Restauración completa. Reiniciando...' }
-      } catch (err: any) {
-        return { success: false, message: err.message }
+      } catch (err: unknown) {
+        return { success: false, message: (err as Error).message }
       }
     }
     return { success: false, message: 'Operación cancelada.' }

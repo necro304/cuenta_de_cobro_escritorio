@@ -19,7 +19,11 @@ import type { Client } from '@/types'
 const { toast } = useToast()
 const clients = ref<Client[]>([])
 const isLoading = ref(true)
-const burstRef = ref<any>(null)
+
+interface ClickBurstInstance {
+  trigger: () => void
+}
+const burstRef = ref<ClickBurstInstance | null>(null)
 const isDialogOpen = ref(false)
 const isEditing = ref(false)
 const editingId = ref<number | null>(null)
