@@ -77,12 +77,13 @@ const state = ref<State>({
 })
 
 function dispatch(action: Action) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentToasts = state.value.toasts as any[]
 
   switch (action.type) {
     case actionTypes.ADD_TOAST: {
       currentToasts.unshift(action.toast)
-      state.value.toasts = currentToasts.slice(0, TOAST_LIMIT) as any
+      state.value.toasts = currentToasts.slice(0, TOAST_LIMIT)
       break
     }
 
@@ -92,7 +93,7 @@ function dispatch(action: Action) {
           return Object.assign({}, t, action.toast)
         }
         return t
-      }) as any
+      })
       break
     }
 
@@ -112,7 +113,7 @@ function dispatch(action: Action) {
         t.id === toastId || toastId === undefined
           ? Object.assign({}, t, { open: false })
           : t,
-      ) as any
+      )
       break
     }
 
@@ -120,7 +121,7 @@ function dispatch(action: Action) {
       if (action.toastId === undefined)
         state.value.toasts = []
       else
-        state.value.toasts = currentToasts.filter((t) => t.id !== action.toastId) as any
+        state.value.toasts = currentToasts.filter((t) => t.id !== action.toastId)
 
       break
   }

@@ -11,13 +11,13 @@ const appVersion = '1.0.0'
 
 const handleCheckUpdates = async () => {
   try {
-    const result = await window.electronAPI.checkForUpdates()
+    const result = await window.electronAPI.checkForUpdates() as { updateInfo?: { version: string } } | null
     // The autoUpdater events in main process will handle the dialogs if an update is found.
     // We can just show a toast if it's already updated.
     if (result && result.updateInfo && result.updateInfo.version === appVersion) {
       toast({ title: 'Al día', description: 'Ya tienes la última versión instalada.' })
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast({ title: 'Error', description: 'No se pudo buscar actualizaciones.', variant: 'destructive' })
   }
 }
@@ -30,8 +30,8 @@ const handleBackup = async () => {
     } else if (result.message !== 'Operación cancelada.') {
       toast({ title: 'Error', description: result.message, variant: 'destructive' })
     }
-  } catch (error: any) {
-    toast({ title: 'Error del sistema', description: error.message, variant: 'destructive' })
+  } catch (error: unknown) {
+    toast({ title: 'Error del sistema', description: (error as Error).message, variant: 'destructive' })
   }
 }
 
@@ -42,8 +42,8 @@ const handleRestore = async () => {
     if (!result.success && result.message !== 'Operación cancelada.') {
       toast({ title: 'Error al restaurar', description: result.message, variant: 'destructive' })
     }
-  } catch (error: any) {
-    toast({ title: 'Error del sistema', description: error.message, variant: 'destructive' })
+  } catch (error: unknown) {
+    toast({ title: 'Error del sistema', description: (error as Error).message, variant: 'destructive' })
   }
 }
 

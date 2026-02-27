@@ -19,7 +19,16 @@ import type { Client } from '@/types'
 const { toast } = useToast()
 const clients = ref<Client[]>([])
 const isLoading = ref(true)
-const burstRef = ref<any>(null)
+
+interface ClickBurstInstance {
+  trigger: () => void
+}
+const burstRef = ref<ClickBurstInstance | null>(null)
+
+const setBurstRef = (el: unknown) => {
+  burstRef.value = el as ClickBurstInstance
+}
+
 const isDialogOpen = ref(false)
 const isEditing = ref(false)
 const editingId = ref<number | null>(null)
@@ -131,7 +140,7 @@ onMounted(loadClients)
             @click="() => { burstRef?.trigger(); openNewDialog() }"
             class="bg-foreground text-background font-bold px-6 py-4 uppercase tracking-wider border-[3px] border-foreground hover:-translate-y-2 hover:-translate-x-2 hover:shadow-[8px_8px_0_0_hsl(var(--accent))] transition-all flex items-center justify-center gap-3 active:translate-y-0 active:translate-x-0 active:shadow-none relative overflow-hidden" 
           >
-            <ClickBurst ref="burstRef" />
+            <ClickBurst :ref="setBurstRef" />
             <Plus class="h-5 w-5" />
             <span>Nuevo Cliente</span>
           </button>
