@@ -10,7 +10,9 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS profile (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       name TEXT,
+      document_type TEXT,
       document_id TEXT,
+      rut TEXT,
       address TEXT,
       phone TEXT,
       email TEXT,
@@ -81,6 +83,18 @@ export function initDb() {
     db.prepare(
       'ALTER TABLE invoices ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)',
     ).run()
+  } catch {
+    // Column might already exist
+  }
+
+  try {
+    db.prepare('ALTER TABLE profile ADD COLUMN document_type TEXT').run()
+  } catch {
+    // Column might already exist
+  }
+
+  try {
+    db.prepare('ALTER TABLE profile ADD COLUMN rut TEXT').run()
   } catch {
     // Column might already exist
   }

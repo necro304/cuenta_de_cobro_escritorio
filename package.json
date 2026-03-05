@@ -1,6 +1,6 @@
 {
   "name": "cuenta-cobro",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Aplicación de escritorio para la gestión de cuentas de cobro generada con Electron, Vue 3 y Vite.",
   "author": "necro304",
   "license": "MIT",
