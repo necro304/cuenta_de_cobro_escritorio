@@ -7,7 +7,7 @@ import { useToast } from '@/components/ui/toast/use-toast'
 const router = useRouter()
 const { toast } = useToast()
 
-const appVersion = '1.0.0'
+import { version as appVersion } from '../../package.json'
 
 const handleCheckUpdates = async () => {
   try {
@@ -70,12 +70,23 @@ const resetDatabase = async () => {
         <CardTitle>Acerca de</CardTitle>
         <CardDescription>Información de la aplicación.</CardDescription>
       </CardHeader>
-      <CardContent class="space-y-2 text-sm text-muted-foreground">
-        <p>Versión: <span class="font-medium text-foreground">{{ appVersion }}</span></p>
-        <p>Aplicación para generación de cuentas de cobro.</p>
-        <Button variant="outline" size="sm" class="mt-2" @click="handleCheckUpdates">
-          Buscar actualizaciones
-        </Button>
+      <CardContent class="space-y-4">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg bg-card text-card-foreground gap-4">
+          <div class="space-y-1">
+            <h3 class="font-semibold text-lg flex items-center gap-2">
+              Cuenta de Cobro Electrónica
+            </h3>
+            <p class="text-sm text-muted-foreground">Aplicación para generación de cuentas de cobro.</p>
+          </div>
+          <div class="flex flex-col items-start sm:items-end space-y-2">
+            <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary text-primary-foreground shadow">
+              v{{ appVersion }}
+            </div>
+            <Button variant="outline" size="sm" @click="handleCheckUpdates">
+              Buscar actualizaciones
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
 
