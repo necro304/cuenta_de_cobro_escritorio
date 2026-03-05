@@ -13,17 +13,26 @@ export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
+  ? path.join(process.env.APP_ROOT, 'public')
+  : RENDERER_DIST
 
 let win: BrowserWindow | null
 
 function createWindow() {
   win = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    width: 1300,
+    height: 800,
+    icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
     },
   })
+
+  if (process.platform === 'darwin') {
+    app.dock.setIcon(path.join(process.env.VITE_PUBLIC, 'icon.png'))
+  }
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
@@ -63,11 +72,11 @@ app.whenReady().then(() => {
   ipcMain.handle('db-backup', async () => {
     const dbPath = path.join(app.getPath('userData'), 'database.sqlite')
     if (!win) return { success: false, message: 'No window found' }
-    
+
     const { canceled, filePath } = await dialog.showSaveDialog(win, {
       title: 'Respaldar Base de Datos',
       defaultPath: path.join(app.getPath('downloads'), 'respaldo_cuentas_cobro.sqlite'),
-      filters: [{ name: 'SQLite Database', extensions: ['sqlite', 'db'] }]
+      filters: [{ name: 'SQLite Database', extensions: ['sqlite', 'db'] }],
     })
 
     if (!canceled && filePath) {
@@ -84,11 +93,11 @@ app.whenReady().then(() => {
   ipcMain.handle('db-restore', async () => {
     const dbPath = path.join(app.getPath('userData'), 'database.sqlite')
     if (!win) return { success: false, message: 'No window found' }
-    
+
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
       title: 'Restaurar Base de Datos',
       properties: ['openFile'],
-      filters: [{ name: 'SQLite Database', extensions: ['sqlite', 'db'] }]
+      filters: [{ name: 'SQLite Database', extensions: ['sqlite', 'db'] }],
     })
 
     if (!canceled && filePaths.length > 0) {
@@ -97,11 +106,11 @@ app.whenReady().then(() => {
         db.close()
         // Overwrite the file
         fs.copyFileSync(filePaths[0], dbPath)
-        
+
         // Restart the app to apply the newly loaded database
         app.relaunch()
         app.exit(0)
-        
+
         return { success: true, message: 'Restauración completa. Reiniciando...' }
       } catch (err: unknown) {
         return { success: false, message: (err as Error).message }
@@ -132,16 +141,18 @@ app.whenReady().then(() => {
 
   autoUpdater.on('update-downloaded', () => {
     if (win) {
-      dialog.showMessageBox(win, {
-        type: 'info',
-        title: 'Actualización lista',
-        message: 'La actualización ha sido descargada. Se instalará al reiniciar la aplicación.',
-        buttons: ['Reiniciar ahora', 'Más tarde']
-      }).then((result) => {
-        if (result.response === 0) {
-          autoUpdater.quitAndInstall()
-        }
-      })
+      dialog
+        .showMessageBox(win, {
+          type: 'info',
+          title: 'Actualización lista',
+          message: 'La actualización ha sido descargada. Se instalará al reiniciar la aplicación.',
+          buttons: ['Reiniciar ahora', 'Más tarde'],
+        })
+        .then((result) => {
+          if (result.response === 0) {
+            autoUpdater.quitAndInstall()
+          }
+        })
     }
   })
 

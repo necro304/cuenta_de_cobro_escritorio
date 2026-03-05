@@ -7,6 +7,7 @@
 ### Reportar Errores (Bugs)
 
 Si encuentras un error, por favor abre un [issue](https://github.com/necro304/cuenta_de_cobro_escritorio/issues) incluyendo:
+
 - Una descripción clara del error.
 - Pasos para reproducirlo.
 - Comportamiento esperado vs. comportamiento actual.

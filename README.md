@@ -29,17 +29,20 @@ Aplicación de escritorio moderna y eficiente para la gestión de cuentas de cob
 ### Pasos para empezar
 
 1.  **Clonar el repositorio:**
+
     ```bash
     git clone https://github.com/necro304/cuenta_de_cobro_escritorio.git
     cd cuenta_de_cobro_escritorio
     ```
 
 2.  **Instalar dependencias:**
+
     ```bash
     npm install
     ```
 
 3.  **Ejecutar en modo desarrollo:**
+
     ```bash
     npm run dev
     ```

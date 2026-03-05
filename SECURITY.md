@@ -6,7 +6,7 @@ Actualmente solo se proporciona soporte de seguridad para la versión más recie
 
 | Versión | Soportada |
 | ------- | --------- |
-| > 1.0.x | ✅ |
+| > 1.0.x | ✅        |
 
 ## Reportar una Vulnerabilidad
 

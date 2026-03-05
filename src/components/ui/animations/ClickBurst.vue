@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref } from 'vue'
 
-const active = ref(false);
+const active = ref(false)
 
 const trigger = () => {
-  active.value = true;
+  active.value = true
   setTimeout(() => {
-    active.value = false;
-  }, 600);
-};
+    active.value = false
+  }, 600)
+}
 
-defineExpose({ trigger });
+defineExpose({ trigger })
 </script>
 
 <template>
@@ -36,8 +36,17 @@ defineExpose({ trigger });
 }
 
 @keyframes burst {
-  0% { transform: translateY(50px) scaleY(0); opacity: 0; }
-  50% { transform: translateY(20px) scaleY(1); opacity: 1; }
-  100% { transform: translateY(0px) scaleY(0); opacity: 0; }
+  0% {
+    transform: translateY(50px) scaleY(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translateY(20px) scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0px) scaleY(0);
+    opacity: 0;
+  }
 }
 </style>
