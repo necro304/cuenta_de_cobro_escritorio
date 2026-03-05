@@ -7,6 +7,7 @@ Como contribuyentes y administradores de este proyecto, nos comprometemos a hace
 ## Nuestros Estándares
 
 Ejemplos de comportamiento que contribuyen a crear un ambiente positivo incluyen:
+
 - El uso de lenguaje acogedor e inclusivo.
 - El respeto a los diferentes puntos de vista y experiencias.
 - La aceptación de críticas constructivas.
@@ -14,6 +15,7 @@ Ejemplos de comportamiento que contribuyen a crear un ambiente positivo incluyen
 - Mostrar empatía hacia otros miembros de la comunidad.
 
 Ejemplos de comportamiento inaceptable por parte de los participantes incluyen:
+
 - El uso de lenguaje o imágenes sexuales y atención sexual no deseada.
 - Comentarios insultantes o despectivos y ataques personales o políticos.
 - El acoso público o privado.

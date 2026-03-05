@@ -1,15 +1,15 @@
 version: 2
 updates:
-  - package-ecosystem: "npm" # Para package.json
-    directory: "/"
+  - package-ecosystem: 'npm' # Para package.json
+    directory: '/'
     schedule:
-      interval: "daily"
+      interval: 'daily'
     open-pull-requests-limit: 10
     labels:
-      - "dependencies"
-      - "javascript"
+      - 'dependencies'
+      - 'javascript'
 
-  - package-ecosystem: "github-actions" # Para tus workflows de .github/workflows
-    directory: "/"
+  - package-ecosystem: 'github-actions' # Para tus workflows de .github/workflows
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'

@@ -69,7 +69,7 @@ export function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `)
-  
+
   // Migrations
   try {
     db.prepare('ALTER TABLE clients ADD COLUMN city TEXT').run()
@@ -78,7 +78,9 @@ export function initDb() {
   }
 
   try {
-    db.prepare('ALTER TABLE invoices ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)').run()
+    db.prepare(
+      'ALTER TABLE invoices ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)',
+    ).run()
   } catch {
     // Column might already exist
   }

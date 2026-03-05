@@ -1,12 +1,15 @@
 <script setup lang="ts">
 defineProps<{
-  size?: string;
-  color?: string;
-}>();
+  size?: string
+  color?: string
+}>()
 </script>
 
 <template>
-  <div class="relative inline-flex items-center justify-center" :style="{ width: size || '40px', height: size || '40px' }">
+  <div
+    class="relative inline-flex items-center justify-center"
+    :style="{ width: size || '40px', height: size || '40px' }"
+  >
     <svg
       viewBox="0 0 100 100"
       class="w-full h-full animate-[spin_2s_linear_infinite]"
@@ -40,7 +43,11 @@ defineProps<{
 
 <style scoped>
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

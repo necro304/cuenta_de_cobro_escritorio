@@ -52,13 +52,27 @@
 }
 
 @keyframes float {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  33% { transform: translate(30px, -50px) rotate(10deg); }
-  66% { transform: translate(-20px, 40px) rotate(-5deg); }
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  33% {
+    transform: translate(30px, -50px) rotate(10deg);
+  }
+  66% {
+    transform: translate(-20px, 40px) rotate(-5deg);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 0.03; }
-  50% { transform: scale(1.2); opacity: 0.06; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.03;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.06;
+  }
 }
 </style>

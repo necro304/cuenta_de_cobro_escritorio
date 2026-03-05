@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -66,7 +73,9 @@ const loadProfile = async () => {
 }
 
 const loadBankAccounts = async () => {
-  const data = await window.electronAPI.dbQuery<BankAccount>('SELECT * FROM bank_accounts ORDER BY created_at DESC')
+  const data = await window.electronAPI.dbQuery<BankAccount>(
+    'SELECT * FROM bank_accounts ORDER BY created_at DESC',
+  )
   bankAccounts.value = data
 }
 
@@ -78,7 +87,14 @@ const saveProfile = async () => {
   try {
     await window.electronAPI.dbRun(
       'UPDATE profile SET name = ?, document_id = ?, address = ?, phone = ?, email = ?, bank_info = ? WHERE id = 1',
-      [profile.value.name || '', profile.value.document_id || '', profile.value.address || '', profile.value.phone || '', profile.value.email || '', profile.value.bank_info || ''],
+      [
+        profile.value.name || '',
+        profile.value.document_id || '',
+        profile.value.address || '',
+        profile.value.phone || '',
+        profile.value.email || '',
+        profile.value.bank_info || '',
+      ],
     )
     toast({
       title: 'Perfil actualizado',
@@ -105,7 +121,11 @@ const openEditAccount = (account: BankAccount) => {
 
 const saveBankAccount = async () => {
   if (!editingAccount.value.bank || !editingAccount.value.account_number) {
-    toast({ title: 'Error', description: 'Todos los campos son requeridos', variant: 'destructive' })
+    toast({
+      title: 'Error',
+      description: 'Todos los campos son requeridos',
+      variant: 'destructive',
+    })
     return
   }
 
@@ -113,19 +133,31 @@ const saveBankAccount = async () => {
     if (editingAccount.value.id) {
       await window.electronAPI.dbRun(
         'UPDATE bank_accounts SET bank = ?, account_type = ?, account_number = ? WHERE id = ?',
-        [editingAccount.value.bank || '', editingAccount.value.account_type || '', editingAccount.value.account_number || '', editingAccount.value.id]
+        [
+          editingAccount.value.bank || '',
+          editingAccount.value.account_type || '',
+          editingAccount.value.account_number || '',
+          editingAccount.value.id,
+        ],
       )
     } else {
       // If it's the first account, make it default
-      const countResult = await window.electronAPI.dbGet<{ count: number }>('SELECT COUNT(*) as count FROM bank_accounts')
+      const countResult = await window.electronAPI.dbGet<{ count: number }>(
+        'SELECT COUNT(*) as count FROM bank_accounts',
+      )
       const isDefault = countResult?.count === 0 ? 1 : 0
-      
+
       await window.electronAPI.dbRun(
         'INSERT INTO bank_accounts (bank, account_type, account_number, is_default) VALUES (?, ?, ?, ?)',
-        [editingAccount.value.bank || '', editingAccount.value.account_type || '', editingAccount.value.account_number || '', isDefault]
+        [
+          editingAccount.value.bank || '',
+          editingAccount.value.account_type || '',
+          editingAccount.value.account_number || '',
+          isDefault,
+        ],
       )
     }
-    
+
     isDialogOpen.value = false
     await loadBankAccounts()
     toast({ title: 'Éxito', description: 'Cuenta bancaria guardada' })
@@ -136,7 +168,7 @@ const saveBankAccount = async () => {
 
 const deleteAccount = async (id: number) => {
   if (!confirm('¿Estás seguro de eliminar esta cuenta?')) return
-  
+
   try {
     await window.electronAPI.dbRun('DELETE FROM bank_accounts WHERE id = ?', [id])
     await loadBankAccounts()
@@ -153,7 +185,11 @@ const setDefaultAccount = async (id: number) => {
     await loadBankAccounts()
     toast({ title: 'Éxito', description: 'Cuenta predeterminada actualizada' })
   } catch (error) {
-    toast({ title: 'Error', description: 'No se pudo actualizar la cuenta predeterminada', variant: 'destructive' })
+    toast({
+      title: 'Error',
+      description: 'No se pudo actualizar la cuenta predeterminada',
+      variant: 'destructive',
+    })
   }
 }
 
@@ -166,13 +202,19 @@ onMounted(() => {
 <template>
   <div class="space-y-12 pb-10">
     <!-- Header -->
-    <div class="border-b-[4px] border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden">
+    <div
+      class="border-b-[4px] border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden"
+    >
       <ScanningLine />
       <div>
-        <h2 class="text-5xl md:text-7xl font-black tracking-tighter uppercase leading-none mb-3">Mi Perfil</h2>
+        <h2 class="text-5xl md:text-7xl font-black tracking-tighter uppercase leading-none mb-3">
+          Mi Perfil
+        </h2>
         <div class="flex items-center gap-3">
           <div class="h-3 w-3 rounded-full bg-accent border border-foreground animate-pulse"></div>
-          <p class="font-mono text-xs font-bold tracking-widest text-muted-foreground uppercase">Configuración de Identidad / SYS_PROFILE</p>
+          <p class="font-mono text-xs font-bold tracking-widest text-muted-foreground uppercase">
+            Configuración de Identidad / SYS_PROFILE
+          </p>
         </div>
       </div>
     </div>
@@ -218,9 +260,7 @@ onMounted(() => {
         <CardHeader class="flex flex-row items-center justify-between space-y-0">
           <div>
             <CardTitle>Cuentas Bancarias</CardTitle>
-            <CardDescription>
-              Gestiona tus cuentas para recibir pagos.
-            </CardDescription>
+            <CardDescription> Gestiona tus cuentas para recibir pagos. </CardDescription>
           </div>
           <Button size="sm" @click="openAddAccount">
             <Plus class="mr-2 h-4 w-4" />
@@ -244,14 +284,25 @@ onMounted(() => {
                 </TableCell>
                 <TableCell>
                   {{ account.account_number }}
-                  <span v-if="account.is_default" class="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                  <span
+                    v-if="account.is_default"
+                    class="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800"
+                  >
                     Principal
                   </span>
                 </TableCell>
                 <TableCell class="text-right">
                   <div class="flex justify-end gap-2">
-                    <Button variant="outline" size="icon" @click="setDefaultAccount(account.id)" title="Marcar como predeterminada">
-                      <CheckCircle2 class="h-4 w-4" :class="account.is_default ? 'text-green-600' : 'text-muted-foreground'" />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      @click="setDefaultAccount(account.id)"
+                      title="Marcar como predeterminada"
+                    >
+                      <CheckCircle2
+                        class="h-4 w-4"
+                        :class="account.is_default ? 'text-green-600' : 'text-muted-foreground'"
+                      />
                     </Button>
                     <Button variant="outline" size="icon" @click="openEditAccount(account)">
                       <Pencil class="h-4 w-4" />
@@ -284,7 +335,11 @@ onMounted(() => {
         <div class="grid gap-4 py-4">
           <div class="grid gap-2">
             <Label for="edit-bank">Banco</Label>
-            <Input id="edit-bank" v-model="editingAccount.bank" placeholder="Ej: Bancolombia, Davivienda..." />
+            <Input
+              id="edit-bank"
+              v-model="editingAccount.bank"
+              placeholder="Ej: Bancolombia, Davivienda..."
+            />
           </div>
           <div class="grid gap-2">
             <Label for="edit-type">Tipo de Cuenta</Label>
