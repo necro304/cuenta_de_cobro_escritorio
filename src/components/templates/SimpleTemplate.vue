@@ -41,6 +41,7 @@ const getDocumentType = (docId: string | undefined) => {
       <div class="cliente-info">
         {{ profile.name?.toUpperCase() }}<br />
         {{ (profile.document_type || getDocumentType(profile.document_id)).toUpperCase() }}: {{ profile.document_id }}<br />
+        <template v-if="profile.rut">RUT: {{ profile.rut }}<br /></template>
       </div>
     </div>
 
@@ -86,6 +87,7 @@ const getDocumentType = (docId: string | undefined) => {
       <p>
         <strong>{{ profile.document_type || getDocumentType(profile.document_id) }}:</strong> {{ profile.document_id }}
       </p>
+      <p v-if="profile.rut"><strong>RUT:</strong> {{ profile.rut }}</p>
       <p v-if="profile.phone"><strong>Teléfono:</strong> {{ profile.phone }}</p>
     </div>
 

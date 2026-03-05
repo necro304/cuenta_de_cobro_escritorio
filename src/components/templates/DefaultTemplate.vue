@@ -52,7 +52,10 @@ defineProps<{
     <div class="debe-section">
       <div class="debe-line">
         <div class="debe-item"><strong>Debe a:</strong> {{ profile.name }}</div>
-        <div class="debe-item"><strong>{{ profile.document_type || 'ID' }}:</strong> {{ profile.document_id }}</div>
+        <div class="debe-item">
+          <strong>{{ profile.document_type || 'ID' }}:</strong> {{ profile.document_id }}
+          <span v-if="profile.rut"><br /><strong>RUT:</strong> {{ profile.rut }}</span>
+        </div>
         <div class="debe-item">
           <strong>de</strong> {{ profile.address?.split(',').pop()?.trim() || 'Colombia' }}
         </div>
@@ -126,6 +129,7 @@ defineProps<{
       <div class="firma-line"></div>
       <div class="firma-text">{{ profile.name }}</div>
       <div class="firma-text">{{ profile.document_type || 'ID' }}: {{ profile.document_id }}</div>
+      <div v-if="profile.rut" class="firma-text">RUT: {{ profile.rut }}</div>
     </div>
   </div>
 </template>

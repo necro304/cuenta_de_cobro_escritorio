@@ -45,6 +45,7 @@ const profile = ref({
   name: '',
   document_type: 'C.C',
   document_id: '',
+  rut: '',
   address: '',
   phone: '',
   email: '',
@@ -66,6 +67,7 @@ const loadProfile = async () => {
       name: data.name ?? '',
       document_type: data.document_type ?? 'C.C',
       document_id: data.document_id ?? '',
+      rut: data.rut ?? '',
       address: data.address ?? '',
       phone: data.phone ?? '',
       email: data.email ?? '',
@@ -88,11 +90,12 @@ const saveProfile = async () => {
   }
   try {
     await window.electronAPI.dbRun(
-      'UPDATE profile SET name = ?, document_type = ?, document_id = ?, address = ?, phone = ?, email = ?, bank_info = ? WHERE id = 1',
+      'UPDATE profile SET name = ?, document_type = ?, document_id = ?, rut = ?, address = ?, phone = ?, email = ?, bank_info = ? WHERE id = 1',
       [
         profile.value.name || '',
         profile.value.document_type || 'C.C',
         profile.value.document_id || '',
+        profile.value.rut || '',
         profile.value.address || '',
         profile.value.phone || '',
         profile.value.email || '',
@@ -246,6 +249,7 @@ onMounted(() => {
                   <SelectItem value="C.C">C.C</SelectItem>
                   <SelectItem value="NIT">NIT</SelectItem>
                   <SelectItem value="C.E">C.E</SelectItem>
+                  <SelectItem value="PPT">PPT</SelectItem>
                   <SelectItem value="Pasaporte">Pasaporte</SelectItem>
                   <SelectItem value="Otro">Otro</SelectItem>
                 </SelectContent>
@@ -255,6 +259,10 @@ onMounted(() => {
               <Label for="doc">Número de Documento</Label>
               <Input id="doc" v-model="profile.document_id" />
             </div>
+          </div>
+          <div class="grid gap-2">
+            <Label for="rut">RUT (Opcional)</Label>
+            <Input id="rut" v-model="profile.rut" placeholder="Ej: 123456789-2" />
           </div>
           <div class="grid gap-2">
             <Label for="address">Dirección</Label>
