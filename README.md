@@ -52,6 +52,20 @@ Aplicación de escritorio moderna y eficiente para la gestión de cuentas de cob
     npm run build
     ```
 
+## 🍎 Instalación en macOS
+
+Si al intentar abrir la aplicación en macOS recibes el error: **"CuentaCobro" está dañado y no puede abrirse. Deberías moverlo al basurero**, esto se debe a que la aplicación no está firmada por Apple.
+
+Para solucionarlo, sigue estos pasos:
+
+1.  Mueve la aplicación a tu carpeta de **Aplicaciones**.
+2.  Abre la **Terminal** y ejecuta el siguiente comando:
+    ```bash
+    sudo xattr -rd com.apple.quarantine /Applications/CuentaCobro.app
+    ```
+3.  Introduce tu contraseña de administrador y presiona Enter.
+4.  ¡Ya puedes abrir la aplicación normalmente!
+
 ## 🤝 Contribuir
 
 ¡Las contribuciones son bienvenidas! Siéntete libre de abrir un issue o enviar un pull request para mejorar este proyecto.
