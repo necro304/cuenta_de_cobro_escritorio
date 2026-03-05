@@ -1,6 +1,7 @@
 export interface Profile {
   id: number
   name: string
+  document_type?: string
   document_id: string
   address: string
   phone: string

@@ -43,6 +43,7 @@ const { toast } = useToast()
 
 const profile = ref({
   name: '',
+  document_type: 'C.C',
   document_id: '',
   address: '',
   phone: '',
@@ -63,6 +64,7 @@ const loadProfile = async () => {
   if (data) {
     profile.value = {
       name: data.name ?? '',
+      document_type: data.document_type ?? 'C.C',
       document_id: data.document_id ?? '',
       address: data.address ?? '',
       phone: data.phone ?? '',
@@ -86,9 +88,10 @@ const saveProfile = async () => {
   }
   try {
     await window.electronAPI.dbRun(
-      'UPDATE profile SET name = ?, document_id = ?, address = ?, phone = ?, email = ?, bank_info = ? WHERE id = 1',
+      'UPDATE profile SET name = ?, document_type = ?, document_id = ?, address = ?, phone = ?, email = ?, bank_info = ? WHERE id = 1',
       [
         profile.value.name || '',
+        profile.value.document_type || 'C.C',
         profile.value.document_id || '',
         profile.value.address || '',
         profile.value.phone || '',
@@ -232,9 +235,26 @@ onMounted(() => {
             <Label for="name">Nombre Completo</Label>
             <Input id="name" v-model="profile.name" />
           </div>
-          <div class="grid gap-2">
-            <Label for="doc">Documento de Identidad (C.C / NIT)</Label>
-            <Input id="doc" v-model="profile.document_id" />
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid gap-2 md:col-span-1">
+              <Label for="doc-type">Tipo de Doc.</Label>
+              <Select v-model="profile.document_type">
+                <SelectTrigger>
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="C.C">C.C</SelectItem>
+                  <SelectItem value="NIT">NIT</SelectItem>
+                  <SelectItem value="C.E">C.E</SelectItem>
+                  <SelectItem value="Pasaporte">Pasaporte</SelectItem>
+                  <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div class="grid gap-2 md:col-span-2">
+              <Label for="doc">Número de Documento</Label>
+              <Input id="doc" v-model="profile.document_id" />
+            </div>
           </div>
           <div class="grid gap-2">
             <Label for="address">Dirección</Label>
