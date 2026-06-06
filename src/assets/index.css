@@ -1,8 +1,89 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap')
+layer(base);
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@config '../../tailwind.config.js';
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility shadow-brutal {
+  /* Brutalist hard shadows */
+  box-shadow: 4px 4px 0px 0px hsl(var(--foreground));
+  .dark & {
+    box-shadow: none;
+    border-bottom: 2px solid hsl(var(--border));
+    border-right: 2px solid hsl(var(--border));
+  }
+}
+
+@utility shadow-brutal-lg {
+  box-shadow: 8px 8px 0px 0px hsl(var(--foreground));
+
+  .dark & {
+    box-shadow: none;
+    border-bottom: 2px solid hsl(var(--border));
+    border-right: 2px solid hsl(var(--border));
+  }
+}
+
+@utility shadow-brutal-sm {
+  box-shadow: 2px 2px 0px 0px hsl(var(--foreground));
+
+  .dark & {
+    box-shadow: none;
+    border-bottom: 2px solid hsl(var(--border));
+    border-right: 2px solid hsl(var(--border));
+  }
+}
+
+@utility dark {
+  & .shadow-brutal {
+    box-shadow: none;
+    border-bottom: 2px solid hsl(var(--border));
+    border-right: 2px solid hsl(var(--border));
+  }
+  & .shadow-brutal-lg {
+    box-shadow: none;
+    border-bottom: 2px solid hsl(var(--border));
+    border-right: 2px solid hsl(var(--border));
+  }
+  & .shadow-brutal-sm {
+    box-shadow: none;
+    border-bottom: 2px solid hsl(var(--border));
+    border-right: 2px solid hsl(var(--border));
+  }
+}
+
+@utility hover-brutal {
+  &:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px 0px hsl(var(--foreground));
+  }
+}
+
+@utility active-brutal {
+  &:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0px 0px 0px 0px hsl(var(--foreground));
+  }
+}
 
 @layer base {
   :root {
@@ -101,34 +182,5 @@
   ::selection {
     background-color: hsl(var(--accent));
     color: white;
-  }
-}
-
-@layer utilities {
-  /* Brutalist hard shadows */
-  .shadow-brutal {
-    box-shadow: 4px 4px 0px 0px hsl(var(--foreground));
-  }
-  .shadow-brutal-lg {
-    box-shadow: 8px 8px 0px 0px hsl(var(--foreground));
-  }
-  .shadow-brutal-sm {
-    box-shadow: 2px 2px 0px 0px hsl(var(--foreground));
-  }
-  .dark .shadow-brutal,
-  .dark .shadow-brutal-lg,
-  .dark .shadow-brutal-sm {
-    box-shadow: none;
-    border-bottom: 2px solid hsl(var(--border));
-    border-right: 2px solid hsl(var(--border));
-  }
-
-  .hover-brutal:hover {
-    transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0px 0px hsl(var(--foreground));
-  }
-  .active-brutal:active {
-    transform: translate(2px, 2px);
-    box-shadow: 0px 0px 0px 0px hsl(var(--foreground));
   }
 }

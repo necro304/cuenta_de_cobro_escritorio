@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Printer, ArrowLeft } from 'lucide-vue-next'
+import { Printer, ArrowLeft } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import {
   Select,

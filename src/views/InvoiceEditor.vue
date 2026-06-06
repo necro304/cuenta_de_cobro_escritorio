@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Plus, Trash2, ArrowLeft, Check, ChevronsUpDown } from 'lucide-vue-next'
+import { Plus, Trash2, ArrowLeft, Check, ChevronsUpDown } from '@lucide/vue'
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -210,7 +210,7 @@ onMounted(loadData)
   <div class="space-y-12 pb-10">
     <!-- Header -->
     <div
-      class="border-b-[4px] border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden"
+      class="border-b-4 border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden"
     >
       <ScanningLine />
       <div class="flex items-center gap-6">
@@ -398,7 +398,7 @@ onMounted(loadData)
               <Label>Notas / Observaciones</Label>
               <textarea
                 v-model="invoice.notes"
-                class="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                class="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               ></textarea>
             </div>
             <Button class="w-full" @click="saveInvoice">{{

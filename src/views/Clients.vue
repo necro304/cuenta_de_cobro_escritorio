@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Plus, Pencil, Trash2 } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2 } from '@lucide/vue'
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
 import RetroSpinner from '@/components/ui/animations/RetroSpinner.vue'
 import ClickBurst from '@/components/ui/animations/ClickBurst.vue'
@@ -153,7 +153,7 @@ onMounted(loadClients)
   <div class="space-y-12">
     <!-- Header -->
     <div
-      class="border-b-[4px] border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden"
+      class="border-b-4 border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden"
     >
       <ScanningLine />
       <div>
@@ -192,10 +192,10 @@ onMounted(loadClients)
           </button>
         </DialogTrigger>
         <DialogContent
-          class="border-[4px] border-foreground shadow-[12px_12px_0_0_hsl(var(--foreground))] rounded-none bg-card p-0 overflow-hidden sm:max-w-[500px]"
+          class="border-4 border-foreground shadow-[12px_12px_0_0_hsl(var(--foreground))] rounded-none bg-card p-0 overflow-hidden sm:max-w-[500px]"
         >
           <DialogHeader
-            class="bg-accent text-white p-6 border-b-[4px] border-foreground text-left m-0"
+            class="bg-accent text-white p-6 border-b-4 border-foreground text-left m-0"
           >
             <DialogTitle class="text-3xl font-black uppercase tracking-tighter m-0">{{
               isEditing ? 'Editar Entidad' : 'Agregar Entidad'
@@ -214,7 +214,7 @@ onMounted(loadClients)
               >
               <input
                 v-model="newClient.name"
-                class="w-full border-[3px] border-foreground bg-background p-3 outline-none focus:ring-4 focus:ring-accent transition-all font-sans font-bold text-lg uppercase"
+                class="w-full border-[3px] border-foreground bg-background p-3 outline-hidden focus:ring-4 focus:ring-accent transition-all font-sans font-bold text-lg uppercase"
                 placeholder="EJ. ACME CORP"
               />
             </div>
@@ -225,7 +225,7 @@ onMounted(loadClients)
               >
               <input
                 v-model="newClient.document_id"
-                class="w-full border-[3px] border-foreground bg-background p-3 outline-none focus:ring-4 focus:ring-accent transition-all"
+                class="w-full border-[3px] border-foreground bg-background p-3 outline-hidden focus:ring-4 focus:ring-accent transition-all"
               />
             </div>
             <div class="space-y-2">
@@ -235,7 +235,7 @@ onMounted(loadClients)
               >
               <input
                 v-model="newClient.address"
-                class="w-full border-[3px] border-foreground bg-background p-3 outline-none focus:ring-4 focus:ring-accent transition-all"
+                class="w-full border-[3px] border-foreground bg-background p-3 outline-hidden focus:ring-4 focus:ring-accent transition-all"
               />
             </div>
             <div class="space-y-2">
@@ -245,7 +245,7 @@ onMounted(loadClients)
               >
               <input
                 v-model="newClient.city"
-                class="w-full border-[3px] border-foreground bg-background p-3 outline-none focus:ring-4 focus:ring-accent transition-all"
+                class="w-full border-[3px] border-foreground bg-background p-3 outline-hidden focus:ring-4 focus:ring-accent transition-all"
                 placeholder="EJ. BOGOTÁ"
               />
             </div>
@@ -257,7 +257,7 @@ onMounted(loadClients)
                 >
                 <input
                   v-model="newClient.phone"
-                  class="w-full border-[3px] border-foreground bg-background p-3 outline-none focus:ring-4 focus:ring-accent transition-all"
+                  class="w-full border-[3px] border-foreground bg-background p-3 outline-hidden focus:ring-4 focus:ring-accent transition-all"
                 />
               </div>
               <div class="space-y-2">
@@ -268,13 +268,13 @@ onMounted(loadClients)
                 <input
                   v-model="newClient.email"
                   type="email"
-                  class="w-full border-[3px] border-foreground bg-background p-3 outline-none focus:ring-4 focus:ring-accent transition-all"
+                  class="w-full border-[3px] border-foreground bg-background p-3 outline-hidden focus:ring-4 focus:ring-accent transition-all"
                 />
               </div>
             </div>
           </div>
           <DialogFooter
-            class="p-6 border-t-[4px] border-foreground bg-secondary sm:justify-center m-0"
+            class="p-6 border-t-4 border-foreground bg-secondary sm:justify-center m-0"
           >
             <button
               @click="saveClient"
@@ -289,12 +289,12 @@ onMounted(loadClients)
 
     <!-- Brutalist Table Container -->
     <div
-      class="border-[4px] border-foreground shadow-[8px_8px_0_0_hsl(var(--foreground))] bg-card overflow-x-auto relative z-10"
+      class="border-4 border-foreground shadow-[8px_8px_0_0_hsl(var(--foreground))] bg-card overflow-x-auto relative z-10"
     >
       <table class="w-full text-left font-mono text-sm border-collapse">
         <thead>
           <tr
-            class="bg-secondary border-b-[4px] border-foreground text-foreground uppercase tracking-widest text-xs"
+            class="bg-secondary border-b-4 border-foreground text-foreground uppercase tracking-widest text-xs"
           >
             <th class="p-4 border-r-[3px] border-foreground">Entidad</th>
             <th class="p-4 border-r-[3px] border-foreground">DOC_ID</th>
@@ -340,14 +340,14 @@ onMounted(loadClients)
             <td class="p-4 text-center">
               <div class="flex items-center justify-center gap-2">
                 <button
-                  class="p-2 border-[2px] border-foreground bg-card hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+                  class="p-2 border-2 border-foreground bg-card hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
                   @click="editClient(client)"
                   title="Editar"
                 >
                   <Pencil class="h-4 w-4" />
                 </button>
                 <button
-                  class="p-2 border-[2px] border-foreground bg-destructive text-destructive-foreground hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+                  class="p-2 border-2 border-foreground bg-destructive text-destructive-foreground hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
                   @click="deleteClient(client.id)"
                   title="Eliminar"
                 >

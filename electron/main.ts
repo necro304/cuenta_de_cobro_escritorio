@@ -1,5 +1,8 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
-import { autoUpdater } from 'electron-updater'
+// electron-updater es CJS: sin named exports al importarlo desde ESM
+import electronUpdater from 'electron-updater'
+
+const { autoUpdater } = electronUpdater
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -31,7 +34,7 @@ function createWindow() {
   })
 
   if (process.platform === 'darwin') {
-    app.dock.setIcon(path.join(process.env.VITE_PUBLIC, 'icon.png'))
+    app.dock?.setIcon(path.join(process.env.VITE_PUBLIC, 'icon.png'))
   }
 
   if (VITE_DEV_SERVER_URL) {

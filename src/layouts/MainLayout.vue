@@ -12,7 +12,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const router = useRouter()
 const activePath = computed(() => router.currentRoute.value.path)
@@ -59,7 +59,7 @@ const navigate = (path: string, index: number) => {
       <!-- Toggle Button -->
       <button
         @click="toggleSidebar"
-        class="absolute -right-[16px] top-8 w-8 h-8 rounded-full border-[3px] border-foreground bg-accent text-white flex items-center justify-center z-50 hover:scale-110 transition-transform shadow-[2px_2px_0_0_hsl(var(--foreground))]"
+        class="absolute right-[-16px] top-8 w-8 h-8 rounded-full border-[3px] border-foreground bg-accent text-white flex items-center justify-center z-50 hover:scale-110 transition-transform shadow-[2px_2px_0_0_hsl(var(--foreground))]"
       >
         <ChevronRight v-if="isCollapsed" class="w-4 h-4 ml-0.5" />
         <ChevronLeft v-else class="w-4 h-4 pr-0.5" />
@@ -104,7 +104,7 @@ const navigate = (path: string, index: number) => {
         <button
           v-for="(item, index) in navItems"
           :key="item.path"
-          class="w-full flex items-center justify-between py-3 text-sm font-bold uppercase tracking-wider border-[3px] transition-all outline-none focus:ring-4 focus:ring-accent relative overflow-hidden h-[54px]"
+          class="w-full flex items-center justify-between py-3 text-sm font-bold uppercase tracking-wider border-[3px] transition-all outline-hidden focus:ring-4 focus:ring-accent relative overflow-hidden h-[54px]"
           :class="[
             activePath === item.path
               ? 'bg-foreground text-background border-foreground shadow-[4px_4px_0_0_hsl(var(--accent))] translate-x-[-2px] translate-y-[-2px]'
@@ -133,7 +133,7 @@ const navigate = (path: string, index: number) => {
         :class="isCollapsed ? 'p-3' : 'p-5'"
       >
         <button
-          class="w-full flex items-center justify-between py-3 text-sm font-bold uppercase tracking-wider border-[3px] transition-all outline-none focus:ring-4 focus:ring-accent relative overflow-hidden h-[54px]"
+          class="w-full flex items-center justify-between py-3 text-sm font-bold uppercase tracking-wider border-[3px] transition-all outline-hidden focus:ring-4 focus:ring-accent relative overflow-hidden h-[54px]"
           :class="[
             activePath === '/settings'
               ? 'bg-foreground text-background border-foreground shadow-[4px_4px_0_0_hsl(var(--accent))] translate-x-[-2px] translate-y-[-2px]'

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { FileText, Users, DollarSign } from 'lucide-vue-next'
+import { FileText, Users, DollarSign } from '@lucide/vue'
 import RetroSpinner from '@/components/ui/animations/RetroSpinner.vue'
 import DataWaves from '@/components/ui/animations/DataWaves.vue'
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
@@ -146,7 +146,7 @@ onMounted(async () => {
   <div class="space-y-12">
     <!-- Header -->
     <div
-      class="border-b-[4px] border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden group"
+      class="border-b-4 border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden group"
     >
       <ScanningLine />
       <div>

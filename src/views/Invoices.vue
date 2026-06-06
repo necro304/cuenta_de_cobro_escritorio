@@ -12,7 +12,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { useRouter } from 'vue-router'
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
 import RetroSpinner from '@/components/ui/animations/RetroSpinner.vue'
@@ -197,7 +197,7 @@ onMounted(loadInvoices)
   <div class="space-y-12">
     <!-- Header -->
     <div
-      class="border-b-[4px] border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden"
+      class="border-b-4 border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden"
     >
       <ScanningLine />
       <div>
@@ -231,7 +231,7 @@ onMounted(loadInvoices)
           v-model="searchQuery"
           type="text"
           placeholder="Buscar por cliente o número de cuenta..."
-          class="w-full pl-10 pr-4 py-3 border-[3px] border-foreground bg-card text-foreground font-mono text-sm focus:outline-none focus:ring-2 focus:ring-accent transition-all shadow-[4px_4px_0_0_hsl(var(--foreground))]"
+          class="w-full pl-10 pr-4 py-3 border-[3px] border-foreground bg-card text-foreground font-mono text-sm focus:outline-hidden focus:ring-2 focus:ring-accent transition-all shadow-[4px_4px_0_0_hsl(var(--foreground))]"
         />
       </div>
 
@@ -241,7 +241,7 @@ onMounted(loadInvoices)
         <Filter class="h-4 w-4 text-muted-foreground" />
         <select
           v-model="statusFilter"
-          class="bg-transparent border-none outline-none text-foreground font-bold uppercase tracking-widest cursor-pointer"
+          class="bg-transparent border-none outline-hidden text-foreground font-bold uppercase tracking-widest cursor-pointer"
         >
           <option value="all">Todos los Estados</option>
           <option value="paid">Pagadas</option>
@@ -253,12 +253,12 @@ onMounted(loadInvoices)
 
     <!-- Brutalist Table Container -->
     <div
-      class="border-[4px] border-foreground shadow-[8px_8px_0_0_hsl(var(--foreground))] bg-card overflow-x-auto relative z-10"
+      class="border-4 border-foreground shadow-[8px_8px_0_0_hsl(var(--foreground))] bg-card overflow-x-auto relative z-10"
     >
       <table class="w-full text-left font-mono text-sm border-collapse">
         <thead>
           <tr
-            class="bg-secondary border-b-[4px] border-foreground text-foreground uppercase tracking-widest text-xs"
+            class="bg-secondary border-b-4 border-foreground text-foreground uppercase tracking-widest text-xs"
           >
             <th class="p-4 border-r-[3px] border-foreground w-24">ID_REF</th>
             <th class="p-4 border-r-[3px] border-foreground">Fecha</th>
@@ -318,7 +318,7 @@ onMounted(loadInvoices)
             </td>
             <td class="p-4 border-r-[3px] border-foreground text-center">
               <span
-                class="inline-block px-3 py-1 border-[2px] border-foreground font-bold text-[0.65rem] uppercase tracking-widest shadow-[2px_2px_0_0_hsl(var(--foreground))]"
+                class="inline-block px-3 py-1 border-2 border-foreground font-bold text-[0.65rem] uppercase tracking-widest shadow-[2px_2px_0_0_hsl(var(--foreground))]"
                 :class="{
                   'bg-green-400 text-black': invoice.status === 'paid',
                   'bg-orange-400 text-black': invoice.status === 'partially_paid',
@@ -337,28 +337,28 @@ onMounted(loadInvoices)
             <td class="p-4 text-center">
               <div class="flex items-center justify-center gap-2">
                 <button
-                  class="p-2 border-[2px] border-foreground bg-card hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+                  class="p-2 border-2 border-foreground bg-card hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
                   @click="openPayments(invoice)"
                   title="Abonos"
                 >
                   <Wallet class="h-4 w-4" />
                 </button>
                 <button
-                  class="p-2 border-[2px] border-foreground bg-card hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+                  class="p-2 border-2 border-foreground bg-card hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
                   @click="router.push('/invoices/edit/' + invoice.id)"
                   title="Editar"
                 >
                   <Pencil class="h-4 w-4" />
                 </button>
                 <button
-                  class="p-2 border-[2px] border-foreground bg-card hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+                  class="p-2 border-2 border-foreground bg-card hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
                   @click="router.push('/print/' + invoice.id)"
                   title="Imprimir"
                 >
                   <Printer class="h-4 w-4" />
                 </button>
                 <button
-                  class="p-2 border-[2px] border-foreground bg-destructive text-destructive-foreground hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+                  class="p-2 border-2 border-foreground bg-destructive text-destructive-foreground hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
                   @click="deleteInvoice(invoice.id)"
                   title="Eliminar"
                 >
@@ -412,20 +412,20 @@ onMounted(loadInvoices)
         <button
           @click="currentPage = 1"
           :disabled="currentPage === 1"
-          class="p-2 border-[2px] border-foreground bg-card disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+          class="p-2 border-2 border-foreground bg-card disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
         >
           <ChevronsLeft class="h-4 w-4" />
         </button>
         <button
           @click="currentPage--"
           :disabled="currentPage === 1"
-          class="p-2 border-[2px] border-foreground bg-card disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+          class="p-2 border-2 border-foreground bg-card disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
         >
           <ChevronLeft class="h-4 w-4" />
         </button>
 
         <div
-          class="px-4 py-2 border-[2px] border-foreground bg-secondary font-black flex items-center justify-center min-w-[80px]"
+          class="px-4 py-2 border-2 border-foreground bg-secondary font-black flex items-center justify-center min-w-[80px]"
         >
           {{ currentPage }} / {{ totalPages }}
         </div>
@@ -433,14 +433,14 @@ onMounted(loadInvoices)
         <button
           @click="currentPage++"
           :disabled="currentPage === totalPages"
-          class="p-2 border-[2px] border-foreground bg-card disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+          class="p-2 border-2 border-foreground bg-card disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
         >
           <ChevronRight class="h-4 w-4" />
         </button>
         <button
           @click="currentPage = totalPages"
           :disabled="currentPage === totalPages"
-          class="p-2 border-[2px] border-foreground bg-card disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+          class="p-2 border-2 border-foreground bg-card disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
         >
           <ChevronsRight class="h-4 w-4" />
         </button>
@@ -450,10 +450,10 @@ onMounted(loadInvoices)
     <!-- Payments Modal -->
     <Dialog v-model:open="isPaymentsModalOpen">
       <DialogContent
-        class="border-[4px] border-foreground shadow-[12px_12px_0_0_hsl(var(--foreground))] rounded-none bg-card p-0 overflow-hidden sm:max-w-[600px]"
+        class="border-4 border-foreground shadow-[12px_12px_0_0_hsl(var(--foreground))] rounded-none bg-card p-0 overflow-hidden sm:max-w-[600px]"
       >
         <DialogHeader
-          class="bg-accent text-white p-6 border-b-[4px] border-foreground text-left m-0"
+          class="bg-accent text-white p-6 border-b-4 border-foreground text-left m-0"
         >
           <DialogTitle class="text-3xl font-black uppercase tracking-tighter m-0"
             >Abonos</DialogTitle
@@ -494,7 +494,7 @@ onMounted(loadInvoices)
             class="space-y-4 border-[3px] border-foreground p-4 bg-background"
           >
             <h4
-              class="font-black uppercase tracking-widest text-sm border-b-[2px] border-foreground pb-2"
+              class="font-black uppercase tracking-widest text-sm border-b-2 border-foreground pb-2"
             >
               Registrar Abono
             </h4>
@@ -507,7 +507,7 @@ onMounted(loadInvoices)
                 <input
                   v-model="newPayment.date"
                   type="date"
-                  class="w-full border-[3px] border-foreground bg-background p-2 outline-none focus:ring-4 focus:ring-accent transition-all"
+                  class="w-full border-[3px] border-foreground bg-background p-2 outline-hidden focus:ring-4 focus:ring-accent transition-all"
                 />
               </div>
               <div class="space-y-2">
@@ -519,7 +519,7 @@ onMounted(loadInvoices)
                   v-model.number="newPayment.amount"
                   type="number"
                   min="1"
-                  class="w-full border-[3px] border-foreground bg-background p-2 outline-none focus:ring-4 focus:ring-accent transition-all font-bold"
+                  class="w-full border-[3px] border-foreground bg-background p-2 outline-hidden focus:ring-4 focus:ring-accent transition-all font-bold"
                 />
               </div>
             </div>
@@ -530,7 +530,7 @@ onMounted(loadInvoices)
               >
               <input
                 v-model="newPayment.notes"
-                class="w-full border-[3px] border-foreground bg-background p-2 outline-none focus:ring-4 focus:ring-accent transition-all"
+                class="w-full border-[3px] border-foreground bg-background p-2 outline-hidden focus:ring-4 focus:ring-accent transition-all"
                 placeholder="EJ: TR #12345"
               />
             </div>
@@ -545,7 +545,7 @@ onMounted(loadInvoices)
           <!-- Payments History -->
           <div class="space-y-2">
             <h4
-              class="font-black uppercase tracking-widest text-sm border-b-[2px] border-foreground pb-2"
+              class="font-black uppercase tracking-widest text-sm border-b-2 border-foreground pb-2"
             >
               Historial de Abonos
             </h4>
@@ -559,7 +559,7 @@ onMounted(loadInvoices)
               <div
                 v-for="payment in payments"
                 :key="payment.id"
-                class="flex justify-between items-center border-[2px] border-foreground p-3 bg-secondary"
+                class="flex justify-between items-center border-2 border-foreground p-3 bg-secondary"
               >
                 <div>
                   <p class="font-bold text-base">${{ payment.amount.toLocaleString() }}</p>
@@ -569,7 +569,7 @@ onMounted(loadInvoices)
                 </div>
                 <button
                   @click="deletePayment(payment.id)"
-                  class="p-2 border-[2px] border-foreground bg-destructive text-destructive-foreground hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+                  class="p-2 border-2 border-foreground bg-destructive text-destructive-foreground hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
                   title="Eliminar Abono"
                 >
                   <Trash2 class="h-4 w-4" />
@@ -580,7 +580,7 @@ onMounted(loadInvoices)
         </div>
 
         <DialogFooter
-          class="p-6 border-t-[4px] border-foreground bg-secondary sm:justify-center m-0"
+          class="p-6 border-t-4 border-foreground bg-secondary sm:justify-center m-0"
         >
           <button
             @click="isPaymentsModalOpen = false"

@@ -37,7 +37,7 @@ defineProps<{
         class="text-accent animate-[spin_1.5s_linear_infinite_reverse]"
       />
     </svg>
-    <div class="absolute inset-0 border-[2px] border-foreground opacity-20"></div>
+    <div class="absolute inset-0 border-2 border-foreground opacity-20"></div>
   </div>
 </template>
 

@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
-import { Plus, Pencil, Trash2, CheckCircle2 } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, CheckCircle2 } from '@lucide/vue'
 import type { Profile, BankAccount } from '@/types'
 
 const { toast } = useToast()
@@ -209,7 +209,7 @@ onMounted(() => {
   <div class="space-y-12 pb-10">
     <!-- Header -->
     <div
-      class="border-b-[4px] border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden"
+      class="border-b-4 border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden"
     >
       <ScanningLine />
       <div>
