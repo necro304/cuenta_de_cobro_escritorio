@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { FileText, Users, DollarSign } from '@lucide/vue'
+import { useTheme } from '@/composables/useTheme'
 import RetroSpinner from '@/components/ui/animations/RetroSpinner.vue'
 import DataWaves from '@/components/ui/animations/DataWaves.vue'
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
@@ -18,6 +19,31 @@ import {
 } from 'chart.js'
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement)
+
+// Chart.js pinta en canvas y no entiende var(--...): se leen los colores
+// resueltos del tema y se recalculan cuando cambia
+const { resolvedTheme } = useTheme()
+
+const readChartColors = () => {
+  const styles = getComputedStyle(document.documentElement)
+  const hsl = (name: string) => `hsl(${styles.getPropertyValue(name).trim()})`
+  return {
+    foreground: hsl('--foreground'),
+    grid: hsl('--muted'),
+  }
+}
+
+const chartColors = ref(readChartColors())
+
+onMounted(() => {
+  chartColors.value = readChartColors()
+})
+
+watch(resolvedTheme, async () => {
+  // nextTick: esperar a que la clase dark ya esté aplicada al <html>
+  await nextTick()
+  chartColors.value = readChartColors()
+})
 
 const stats = ref({
   totalInvoices: 0,
@@ -40,12 +66,13 @@ const doughnutChartData = computed(() => {
     map[item.status] = item.count
   })
 
+  const border = chartColors.value.foreground
   return {
     labels: ['Pagadas', 'Abonadas', 'Pendientes'],
     datasets: [
       {
         backgroundColor: ['#4ade80', '#fb923c', '#facc15'],
-        borderColor: ['#000000', '#000000', '#000000'],
+        borderColor: [border, border, border],
         borderWidth: 3,
         data: [map.paid, map.partially_paid, map.draft],
       },
@@ -53,7 +80,7 @@ const doughnutChartData = computed(() => {
   }
 })
 
-const doughnutOptions = {
+const doughnutOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
@@ -61,11 +88,11 @@ const doughnutOptions = {
       position: 'bottom' as const,
       labels: {
         font: { family: 'monospace', weight: 'bold' as const },
-        color: '#000',
+        color: chartColors.value.foreground,
       },
     },
   },
-}
+}))
 
 const barChartData = computed(() => {
   // Sort ascending for chart
@@ -79,8 +106,8 @@ const barChartData = computed(() => {
     datasets: [
       {
         label: 'Ingresos Facturados ($)',
-        backgroundColor: '#000000',
-        borderColor: '#000000',
+        backgroundColor: chartColors.value.foreground,
+        borderColor: chartColors.value.foreground,
         borderWidth: 2,
         data: sorted.map((d) => d.total),
       },
@@ -88,27 +115,36 @@ const barChartData = computed(() => {
   }
 })
 
-const barOptions = {
+const barOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   scales: {
     y: {
       beginAtZero: true,
-      grid: { color: '#e5e7eb' },
-      ticks: { font: { family: 'monospace', weight: 'bold' as const }, color: '#000' },
+      grid: { color: chartColors.value.grid },
+      ticks: {
+        font: { family: 'monospace', weight: 'bold' as const },
+        color: chartColors.value.foreground,
+      },
     },
     x: {
       grid: { display: false },
-      ticks: { font: { family: 'monospace', weight: 'bold' as const }, color: '#000' },
+      ticks: {
+        font: { family: 'monospace', weight: 'bold' as const },
+        color: chartColors.value.foreground,
+      },
     },
   },
   plugins: {
     legend: {
       position: 'top' as const,
-      labels: { font: { family: 'monospace', weight: 'bold' as const }, color: '#000' },
+      labels: {
+        font: { family: 'monospace', weight: 'bold' as const },
+        color: chartColors.value.foreground,
+      },
     },
   },
-}
+}))
 
 onMounted(async () => {
   try {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Printer, ArrowLeft } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
@@ -70,7 +70,21 @@ const print = () => {
   window.print()
 }
 
-onMounted(loadData)
+// El documento se imprime siempre en claro: se quita la clase dark mientras
+// esta vista está montada, sin tocar la preferencia persistida del tema
+let hadDarkClass = false
+
+onMounted(() => {
+  hadDarkClass = document.documentElement.classList.contains('dark')
+  document.documentElement.classList.remove('dark')
+  loadData()
+})
+
+onUnmounted(() => {
+  if (hadDarkClass) {
+    document.documentElement.classList.add('dark')
+  }
+})
 </script>
 
 <template>

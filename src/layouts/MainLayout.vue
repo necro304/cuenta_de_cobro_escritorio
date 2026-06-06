@@ -89,7 +89,7 @@ const navigate = (path: string, index: number) => {
           </h1>
           <div
             v-if="!isCollapsed"
-            class="text-[0.65rem] font-mono font-bold mt-1 tracking-widest uppercase text-foreground bg-white inline-block px-1 border border-foreground whitespace-nowrap"
+            class="text-[0.65rem] font-mono font-bold mt-1 tracking-widest uppercase text-black bg-white inline-block px-1 border border-black whitespace-nowrap"
           >
             SYS.VER.2.0 // ELECTRON
           </div>

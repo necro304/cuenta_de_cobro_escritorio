@@ -1,11 +1,22 @@
 <script setup lang="ts">
+import type { Component } from 'vue'
 import { useRouter } from 'vue-router'
+import { Sun, Moon, Monitor } from '@lucide/vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast/use-toast'
+import { useTheme, type ThemeMode } from '@/composables/useTheme'
 
 const router = useRouter()
 const { toast } = useToast()
+
+const { theme, setTheme } = useTheme()
+
+const themeOptions: { value: ThemeMode; label: string; icon: Component }[] = [
+  { value: 'light', label: 'Claro', icon: Sun },
+  { value: 'dark', label: 'Oscuro', icon: Moon },
+  { value: 'auto', label: 'Sistema', icon: Monitor },
+]
 
 import { version as appVersion } from '../../package.json'
 
@@ -119,6 +130,27 @@ const resetDatabase = async () => {
               Buscar actualizaciones
             </Button>
           </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card class="max-w-2xl">
+      <CardHeader>
+        <CardTitle>Apariencia</CardTitle>
+        <CardDescription>Personalice el tema visual de la aplicación.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div class="flex flex-wrap gap-2">
+          <Button
+            v-for="option in themeOptions"
+            :key="option.value"
+            :variant="theme === option.value ? 'default' : 'outline'"
+            class="gap-2"
+            @click="setTheme(option.value)"
+          >
+            <component :is="option.icon" class="w-4 h-4" />
+            {{ option.label }}
+          </Button>
         </div>
       </CardContent>
     </Card>
