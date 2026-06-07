@@ -10,6 +10,13 @@ export interface ElectronAPI {
   dbBackup: () => Promise<{ success: boolean; message: string }>
   dbRestore: () => Promise<{ success: boolean; message: string }>
   checkForUpdates: () => Promise<unknown>
+  exportPdf: (opts: {
+    invoiceId: number
+    invoiceNumber: number
+    template: string
+    includeSignature: boolean
+  }) => Promise<{ success: boolean; message: string }>
+  notifyPrintReady: () => void
 }
 
 declare global {

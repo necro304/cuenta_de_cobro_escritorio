@@ -9,4 +9,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   dbBackup: () => ipcRenderer.invoke('db-backup'),
   dbRestore: () => ipcRenderer.invoke('db-restore'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  exportPdf: (opts: {
+    invoiceId: number
+    invoiceNumber: number
+    template: string
+    includeSignature: boolean
+  }) => ipcRenderer.invoke('export-pdf', opts),
+  notifyPrintReady: () => ipcRenderer.send('print-ready'),
 })

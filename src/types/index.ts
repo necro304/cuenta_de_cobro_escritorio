@@ -1,3 +1,7 @@
+export type SignatureMode = 'auto' | 'none' | 'ask'
+
+export type TemplateId = 'default' | 'simple'
+
 export interface Profile {
   id: number
   name: string
@@ -8,7 +12,9 @@ export interface Profile {
   phone: string
   email: string
   bank_info: string
-  signature_path?: string
+  signature?: string | null
+  signature_mode?: SignatureMode
+  default_template?: TemplateId
 }
 
 export interface Client {

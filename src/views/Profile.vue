@@ -36,8 +36,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
-import { Plus, Pencil, Trash2, CheckCircle2 } from '@lucide/vue'
-import type { Profile, BankAccount } from '@/types'
+import SignaturePadDialog from '@/components/SignaturePadDialog.vue'
+import { Plus, Pencil, Trash2, CheckCircle2, Upload, PenLine } from '@lucide/vue'
+import type { Profile, BankAccount, SignatureMode, TemplateId } from '@/types'
 
 const { toast } = useToast()
 
@@ -50,7 +51,13 @@ const profile = ref({
   phone: '',
   email: '',
   bank_info: '',
+  signature_mode: 'auto' as SignatureMode,
+  default_template: 'default' as TemplateId,
 })
+
+const signature = ref<string | null>(null)
+const isSignatureDialogOpen = ref(false)
+const signatureFileInput = ref<HTMLInputElement | null>(null)
 
 const bankAccounts = ref<BankAccount[]>([])
 const isDialogOpen = ref(false)
@@ -72,8 +79,81 @@ const loadProfile = async () => {
       phone: data.phone ?? '',
       email: data.email ?? '',
       bank_info: data.bank_info ?? '',
+      signature_mode: data.signature_mode ?? 'auto',
+      default_template: data.default_template ?? 'default',
     }
+    signature.value = data.signature ?? null
   }
+}
+
+const validateSignatureFile = (file: File): string | null => {
+  if (!['image/png', 'image/jpeg'].includes(file.type)) {
+    return 'La firma debe ser una imagen PNG o JPG'
+  }
+  if (file.size > 1024 * 1024) {
+    return 'La imagen no debe superar 1 MB'
+  }
+  return null
+}
+
+const saveSignature = async (dataUrl: string | null) => {
+  try {
+    await window.electronAPI.dbRun('UPDATE profile SET signature = ? WHERE id = 1', [dataUrl])
+    signature.value = dataUrl
+    toast({
+      title: dataUrl ? 'Firma guardada' : 'Firma eliminada',
+      description: dataUrl ? 'Tu firma se usará según el modo configurado.' : undefined,
+    })
+  } catch {
+    toast({ title: 'Error', description: 'No se pudo guardar la firma', variant: 'destructive' })
+  }
+}
+
+const handleSignatureFile = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  const error = validateSignatureFile(file)
+  if (error) {
+    toast({ title: 'Error', description: error, variant: 'destructive' })
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = () => saveSignature(reader.result as string)
+  reader.readAsDataURL(file)
+}
+
+const deleteSignature = () => {
+  if (!confirm('¿Eliminar la firma guardada?')) return
+  saveSignature(null)
+}
+
+const saveSignaturePrefs = async () => {
+  try {
+    await window.electronAPI.dbRun(
+      'UPDATE profile SET signature_mode = ?, default_template = ? WHERE id = 1',
+      [profile.value.signature_mode, profile.value.default_template],
+    )
+  } catch {
+    toast({
+      title: 'Error',
+      description: 'No se pudo guardar la preferencia',
+      variant: 'destructive',
+    })
+  }
+}
+
+const updateSignatureMode = (value: unknown) => {
+  profile.value.signature_mode = value as SignatureMode
+  saveSignaturePrefs()
+}
+
+const updateDefaultTemplate = (value: unknown) => {
+  profile.value.default_template = value as TemplateId
+  saveSignaturePrefs()
 }
 
 const loadBankAccounts = async () => {
@@ -350,6 +430,83 @@ onMounted(() => {
           </Table>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Firma</CardTitle>
+          <CardDescription>
+            Tu firma aparecerá en las cuentas de cobro según el modo que elijas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <div
+            class="flex h-32 items-center justify-center rounded-md border-2 border-dashed border-foreground/20 bg-white"
+          >
+            <img
+              v-if="signature"
+              :src="signature"
+              alt="Firma actual"
+              class="max-h-28 max-w-full object-contain p-2"
+            />
+            <p v-else class="text-sm text-muted-foreground">No has configurado una firma.</p>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" @click="signatureFileInput?.click()">
+              <Upload class="mr-2 h-4 w-4" />
+              Subir imagen
+            </Button>
+            <Button variant="outline" size="sm" @click="isSignatureDialogOpen = true">
+              <PenLine class="mr-2 h-4 w-4" />
+              Dibujar
+            </Button>
+            <Button v-if="signature" variant="outline" size="sm" @click="deleteSignature">
+              <Trash2 class="mr-2 h-4 w-4 text-destructive" />
+              Eliminar
+            </Button>
+          </div>
+          <input
+            ref="signatureFileInput"
+            type="file"
+            accept="image/png,image/jpeg"
+            class="hidden"
+            @change="handleSignatureFile"
+          />
+
+          <div class="grid gap-2">
+            <Label for="signature-mode">Uso de la firma en documentos</Label>
+            <Select
+              :model-value="profile.signature_mode"
+              @update:model-value="updateSignatureMode"
+            >
+              <SelectTrigger id="signature-mode">
+                <SelectValue placeholder="Selecciona el modo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Automática (siempre incluirla)</SelectItem>
+                <SelectItem value="none">Sin firma</SelectItem>
+                <SelectItem value="ask">Preguntar al generar</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div class="grid gap-2">
+            <Label for="default-template">Plantilla predeterminada</Label>
+            <Select
+              :model-value="profile.default_template"
+              @update:model-value="updateDefaultTemplate"
+            >
+              <SelectTrigger id="default-template">
+                <SelectValue placeholder="Selecciona la plantilla" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Por defecto</SelectItem>
+                <SelectItem value="simple">Simple</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
     </div>
 
     <Dialog v-model:open="isDialogOpen">
@@ -395,5 +552,7 @@ onMounted(() => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <SignaturePadDialog v-model:open="isSignatureDialogOpen" @save="saveSignature" />
   </div>
 </template>

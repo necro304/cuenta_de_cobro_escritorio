@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Printer, ArrowLeft } from '@lucide/vue'
+import { Printer, ArrowLeft, Download } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -11,14 +11,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Profile, Client, Invoice, InvoiceItem, InvoicePayment, BankAccount } from '@/types'
+import { useToast } from '@/components/ui/toast/use-toast'
+import SignatureAskDialog from '@/components/SignatureAskDialog.vue'
+import type {
+  Profile,
+  Client,
+  Invoice,
+  InvoiceItem,
+  InvoicePayment,
+  BankAccount,
+  TemplateId,
+} from '@/types'
 
 import DefaultTemplate from '@/components/templates/DefaultTemplate.vue'
 import SimpleTemplate from '@/components/templates/SimpleTemplate.vue'
 
 const route = useRoute()
 const router = useRouter()
+const { toast } = useToast()
 const invoiceId = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
+
+// Modo PDF: la ventana oculta del main process carga esta vista con
+// ?pdf=1&template=X&signature=0|1 y avisa con notifyPrintReady() al terminar
+const isPdfMode = route.query.pdf === '1'
 
 const profile = ref<Partial<Profile>>({})
 const client = ref<Partial<Client>>({})
@@ -27,11 +42,41 @@ const items = ref<InvoiceItem[]>([])
 const payments = ref<InvoicePayment[]>([])
 const bankAccount = ref<BankAccount | null>(null)
 
-const selectedTemplate = ref('default')
+const selectedTemplate = ref<TemplateId>('default')
+const includeSignature = ref(false)
+// Si el usuario ya eligió manualmente, el modo 'ask' no vuelve a preguntar
+const userChoseSignature = ref(false)
+const isAskDialogOpen = ref(false)
+const pendingAction = ref<'print' | 'pdf' | null>(null)
+
+const signatureToRender = computed(() =>
+  includeSignature.value ? (profile.value.signature ?? null) : null,
+)
+
+const signatureChoice = computed({
+  get: () => (includeSignature.value ? 'with' : 'without'),
+  set: (value: string) => {
+    includeSignature.value = value === 'with'
+    userChoseSignature.value = true
+  },
+})
+
+const asTemplateId = (value: unknown): TemplateId => (value === 'simple' ? 'simple' : 'default')
 
 const loadData = async () => {
   const profileData = await window.electronAPI.dbGet<Profile>('SELECT * FROM profile WHERE id = 1')
-  if (profileData) profile.value = profileData
+  if (profileData) {
+    profile.value = profileData
+
+    if (isPdfMode) {
+      selectedTemplate.value = asTemplateId(route.query.template)
+      includeSignature.value = route.query.signature === '1'
+    } else {
+      selectedTemplate.value = asTemplateId(profileData.default_template)
+      // En modo 'ask' la vista previa se muestra sin firma hasta imprimir/descargar
+      includeSignature.value = profileData.signature_mode === 'auto' && !!profileData.signature
+    }
+  }
 
   const invoiceData = await window.electronAPI.dbGet<Invoice>(
     'SELECT * FROM invoices WHERE id = ?',
@@ -64,10 +109,55 @@ const loadData = async () => {
       [invoiceId],
     )
   }
+
+  if (isPdfMode) {
+    await nextTick()
+    // Margen extra para que la imagen de la firma termine de pintarse
+    setTimeout(() => window.electronAPI.notifyPrintReady(), 100)
+  }
 }
 
-const print = () => {
-  window.print()
+const mustAskSignature = () =>
+  !isPdfMode &&
+  profile.value.signature_mode === 'ask' &&
+  !!profile.value.signature &&
+  !userChoseSignature.value
+
+const runAction = async (action: 'print' | 'pdf') => {
+  if (action === 'print') {
+    await nextTick()
+    window.print()
+    return
+  }
+
+  const result = await window.electronAPI.exportPdf({
+    invoiceId: Number(invoiceId),
+    invoiceNumber: invoice.value.number ?? 0,
+    template: selectedTemplate.value,
+    includeSignature: includeSignature.value,
+  })
+  if (result.success) {
+    toast({ title: 'PDF descargado', description: result.message })
+  } else if (result.message !== 'Operación cancelada.') {
+    toast({ title: 'Error', description: result.message, variant: 'destructive' })
+  }
+}
+
+const requestAction = (action: 'print' | 'pdf') => {
+  if (mustAskSignature()) {
+    pendingAction.value = action
+    isAskDialogOpen.value = true
+    return
+  }
+  runAction(action)
+}
+
+const onSignatureChoice = (withSignature: boolean) => {
+  includeSignature.value = withSignature
+  userChoseSignature.value = true
+  const action = pendingAction.value
+  pendingAction.value = null
+  if (action) runAction(action)
 }
 
 // El documento se imprime siempre en claro: se quita la clase dark mientras
@@ -89,8 +179,11 @@ onUnmounted(() => {
 
 <template>
   <div class="print-container min-h-screen bg-white">
-    <!-- Controls (hidden when printing) -->
-    <div class="print-controls p-4 bg-muted/50 border-b flex justify-between items-center no-print">
+    <!-- Controls (hidden when printing or rendering for PDF) -->
+    <div
+      v-if="!isPdfMode"
+      class="print-controls p-4 bg-muted/50 border-b flex justify-between items-center no-print"
+    >
       <Button variant="outline" @click="router.back()" class="gap-2">
         <ArrowLeft class="h-4 w-4" />
         Volver
@@ -112,7 +205,27 @@ onUnmounted(() => {
           </Select>
         </div>
 
-        <Button @click="print" class="gap-2">
+        <div v-if="profile.signature" class="flex items-center gap-2">
+          <span class="text-sm font-medium">Firma:</span>
+          <Select v-model="signatureChoice">
+            <SelectTrigger class="w-[140px] bg-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="with">Con firma</SelectItem>
+                <SelectItem value="without">Sin firma</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Button variant="outline" @click="requestAction('pdf')" class="gap-2">
+          <Download class="h-4 w-4" />
+          Descargar PDF
+        </Button>
+
+        <Button @click="requestAction('print')" class="gap-2">
           <Printer class="h-4 w-4" />
           Imprimir
         </Button>
@@ -127,6 +240,7 @@ onUnmounted(() => {
       :invoice="invoice"
       :items="items"
       :bankAccount="bankAccount"
+      :signature="signatureToRender"
     />
     <SimpleTemplate
       v-if="selectedTemplate === 'simple'"
@@ -135,7 +249,10 @@ onUnmounted(() => {
       :invoice="invoice"
       :items="items"
       :bankAccount="bankAccount"
+      :signature="signatureToRender"
     />
+
+    <SignatureAskDialog v-model:open="isAskDialogOpen" @choice="onSignatureChoice" />
   </div>
 </template>
 

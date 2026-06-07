@@ -7,6 +7,7 @@ defineProps<{
   invoice: Partial<Invoice>
   items: InvoiceItem[]
   bankAccount: BankAccount | null
+  signature: string | null
 }>()
 </script>
 
@@ -126,6 +127,7 @@ defineProps<{
     </div>
 
     <div class="firma-section">
+      <img v-if="signature" :src="signature" alt="Firma" class="firma-img" />
       <div class="firma-line"></div>
       <div class="firma-text">{{ profile.name }}</div>
       <div class="firma-text">{{ profile.document_type || 'ID' }}: {{ profile.document_id }}</div>
@@ -330,6 +332,13 @@ defineProps<{
   width: 300px;
   margin: 0 auto 10px auto;
   height: 5px;
+}
+
+.firma-img {
+  display: block;
+  max-width: 280px;
+  max-height: 80px;
+  margin: 0 auto -8px auto;
 }
 
 .firma-text {

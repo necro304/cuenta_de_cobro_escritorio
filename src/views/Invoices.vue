@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Download,
 } from '@lucide/vue'
 import { useRouter } from 'vue-router'
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
@@ -25,12 +26,53 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/toast/use-toast'
-import type { Invoice, InvoicePayment } from '@/types'
+import SignatureAskDialog from '@/components/SignatureAskDialog.vue'
+import type { Invoice, InvoicePayment, Profile } from '@/types'
 
 const router = useRouter()
 const { toast } = useToast()
 const invoices = ref<Invoice[]>([])
 const isLoading = ref(true)
+
+// Perfil para la descarga rápida de PDF (plantilla predeterminada y modo de firma)
+const profile = ref<Partial<Profile>>({})
+const isAskDialogOpen = ref(false)
+const pendingPdfInvoice = ref<Invoice | null>(null)
+
+const loadProfile = async () => {
+  const data = await window.electronAPI.dbGet<Profile>('SELECT * FROM profile WHERE id = 1')
+  if (data) profile.value = data
+}
+
+const exportPdf = async (invoice: Invoice, includeSignature: boolean) => {
+  const result = await window.electronAPI.exportPdf({
+    invoiceId: invoice.id,
+    invoiceNumber: invoice.number,
+    template: profile.value.default_template ?? 'default',
+    includeSignature,
+  })
+  if (result.success) {
+    toast({ title: 'PDF descargado', description: result.message })
+  } else if (result.message !== 'Operación cancelada.') {
+    toast({ title: 'Error', description: result.message, variant: 'destructive' })
+  }
+}
+
+const downloadPdf = (invoice: Invoice) => {
+  if (profile.value.signature && profile.value.signature_mode === 'ask') {
+    pendingPdfInvoice.value = invoice
+    isAskDialogOpen.value = true
+    return
+  }
+  const withSignature = profile.value.signature_mode === 'auto' && !!profile.value.signature
+  exportPdf(invoice, withSignature)
+}
+
+const onSignatureChoice = (withSignature: boolean) => {
+  const invoice = pendingPdfInvoice.value
+  pendingPdfInvoice.value = null
+  if (invoice) exportPdf(invoice, withSignature)
+}
 
 // Search, Filter and Pagination State
 const searchQuery = ref('')
@@ -190,7 +232,10 @@ const handleNewInvoice = () => {
   }, 150)
 }
 
-onMounted(loadInvoices)
+onMounted(() => {
+  loadInvoices()
+  loadProfile()
+})
 </script>
 
 <template>
@@ -265,7 +310,7 @@ onMounted(loadInvoices)
             <th class="p-4 border-r-[3px] border-foreground">Cliente_Entidad</th>
             <th class="p-4 border-r-[3px] border-foreground text-right">Total / Saldo</th>
             <th class="p-4 border-r-[3px] border-foreground text-center w-28">Estado</th>
-            <th class="p-4 text-center w-40">CMD</th>
+            <th class="p-4 text-center w-48">CMD</th>
           </tr>
         </thead>
         <tbody class="font-medium">
@@ -356,6 +401,13 @@ onMounted(loadInvoices)
                   title="Imprimir"
                 >
                   <Printer class="h-4 w-4" />
+                </button>
+                <button
+                  class="p-2 border-2 border-foreground bg-card hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
+                  @click="downloadPdf(invoice)"
+                  title="Descargar PDF"
+                >
+                  <Download class="h-4 w-4" />
                 </button>
                 <button
                   class="p-2 border-2 border-foreground bg-destructive text-destructive-foreground hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
@@ -591,5 +643,7 @@ onMounted(loadInvoices)
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <SignatureAskDialog v-model:open="isAskDialogOpen" @choice="onSignatureChoice" />
   </div>
 </template>

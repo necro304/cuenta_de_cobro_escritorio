@@ -8,6 +8,7 @@ defineProps<{
   invoice: Partial<Invoice>
   items: InvoiceItem[]
   bankAccount: BankAccount | null
+  signature: string | null
 }>()
 
 const formatDate = (dateStr: string | undefined) => {
@@ -81,8 +82,8 @@ const getDocumentType = (docId: string | undefined) => {
 
     <div class="firma-section">
       <p>Cordialmente,</p>
-      <!-- Si se agrega firma en base64 en profile en el futuro, se puede poner aquí -->
-      <br /><br /><br />
+      <img v-if="signature" :src="signature" alt="Firma" class="signature-image" />
+      <template v-else><br /><br /><br /></template>
       <p>{{ profile.name }}</p>
       <p>
         <strong>{{ profile.document_type || getDocumentType(profile.document_id) }}:</strong> {{ profile.document_id }}
