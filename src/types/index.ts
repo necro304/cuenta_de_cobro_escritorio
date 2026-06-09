@@ -60,6 +60,9 @@ export interface InvoiceItem {
   price: number
 }
 
+/** Ítem de factura tal como se edita en el formulario (sin id ni invoice_id). */
+export type InvoiceItemForm = Omit<InvoiceItem, 'id' | 'invoice_id'>
+
 export interface InvoicePayment {
   id: number
   invoice_id: number
