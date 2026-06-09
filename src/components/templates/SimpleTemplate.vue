@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Profile, Client, Invoice, InvoiceItem, BankAccount } from '@/types'
 import { numeroALetras } from '@/lib/numeroALetras'
+import { formatCurrency, formatDate } from '@/lib/format'
 
 defineProps<{
   profile: Partial<Profile>
@@ -10,15 +11,6 @@ defineProps<{
   bankAccount: BankAccount | null
   signature: string | null
 }>()
-
-const formatDate = (dateStr: string | undefined) => {
-  if (!dateStr) return ''
-  const parts = dateStr.split('-')
-  if (parts.length === 3) {
-    return `${parts[2]}/${parts[1]}/${parts[0]}`
-  }
-  return dateStr
-}
 
 const getDocumentType = (docId: string | undefined) => {
   // Basic heuristic or default to NIT/CC
@@ -49,8 +41,7 @@ const getDocumentType = (docId: string | undefined) => {
     <div class="suma">
       <h2>LA SUMA DE:</h2>
       <div class="monto">
-        {{ numeroALetras(invoice.total || 0) }} PESOS (COP
-        {{ (invoice.total || 0).toLocaleString('es-CO', { minimumFractionDigits: 0 }) }})
+        {{ numeroALetras(invoice.total || 0) }} PESOS (COP {{ formatCurrency(invoice.total) }})
       </div>
     </div>
 

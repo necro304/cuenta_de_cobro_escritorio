@@ -5,6 +5,7 @@ import { Sun, Moon, Monitor } from '@lucide/vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast/use-toast'
+import { getErrorMessage } from '@/lib/utils'
 import { useTheme, type ThemeMode } from '@/composables/useTheme'
 
 const router = useRouter()
@@ -22,15 +23,13 @@ import { version as appVersion } from '../../package.json'
 
 const handleCheckUpdates = async () => {
   try {
-    const result = (await window.electronAPI.checkForUpdates()) as {
-      updateInfo?: { version: string }
-    } | null
-    // The autoUpdater events in main process will handle the dialogs if an update is found.
-    // We can just show a toast if it's already updated.
-    if (result && result.updateInfo && result.updateInfo.version === appVersion) {
+    const result = await window.electronAPI.checkForUpdates()
+    // Los eventos de autoUpdater en el main process manejan los diálogos si hay
+    // actualización; aquí solo avisamos cuando ya está al día.
+    if (result?.updateInfo?.version === appVersion) {
       toast({ title: 'Al día', description: 'Ya tienes la última versión instalada.' })
     }
-  } catch (error: unknown) {
+  } catch {
     toast({
       title: 'Error',
       description: 'No se pudo buscar actualizaciones.',
@@ -47,10 +46,10 @@ const handleBackup = async () => {
     } else if (result.message !== 'Operación cancelada.') {
       toast({ title: 'Error', description: result.message, variant: 'destructive' })
     }
-  } catch (error: unknown) {
+  } catch (error) {
     toast({
       title: 'Error del sistema',
-      description: (error as Error).message,
+      description: getErrorMessage(error),
       variant: 'destructive',
     })
   }
@@ -68,10 +67,10 @@ const handleRestore = async () => {
     if (!result.success && result.message !== 'Operación cancelada.') {
       toast({ title: 'Error al restaurar', description: result.message, variant: 'destructive' })
     }
-  } catch (error: unknown) {
+  } catch (error) {
     toast({
       title: 'Error del sistema',
-      description: (error as Error).message,
+      description: getErrorMessage(error),
       variant: 'destructive',
     })
   }

@@ -14,10 +14,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/toast/use-toast'
+import { useClients } from '@/composables/useClients'
 import type { Client } from '@/types'
 
 const { toast } = useToast()
-const clients = ref<Client[]>([])
+const { clients, loadClients: fetchClients } = useClients()
 const isLoading = ref(true)
 
 interface ClickBurstInstance {
@@ -44,9 +45,7 @@ const newClient = ref({
 const loadClients = async () => {
   isLoading.value = true
   try {
-    clients.value = await window.electronAPI.dbQuery<Client>(
-      'SELECT * FROM clients ORDER BY name ASC',
-    )
+    await fetchClients()
   } finally {
     isLoading.value = false
   }
@@ -101,9 +100,15 @@ const closeDialog = () => {
   }, 200)
 }
 
+const validate = (): string | null => {
+  if (!newClient.value.name.trim()) return 'Nombre de entidad requerido.'
+  return null
+}
+
 const saveClient = async () => {
-  if (!newClient.value.name.trim()) {
-    toast({ title: 'SYS_ERR', description: 'Nombre de entidad requerido.', variant: 'destructive' })
+  const error = validate()
+  if (error) {
+    toast({ title: 'SYS_ERR', description: error, variant: 'destructive' })
     return
   }
   try {

@@ -38,9 +38,11 @@ import {
 import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
 import SignaturePadDialog from '@/components/SignaturePadDialog.vue'
 import { Plus, Pencil, Trash2, CheckCircle2, Upload, PenLine } from '@lucide/vue'
-import type { Profile, BankAccount, SignatureMode, TemplateId } from '@/types'
+import { useProfile } from '@/composables/useProfile'
+import type { BankAccount, SignatureMode, TemplateId } from '@/types'
 
 const { toast } = useToast()
+const { loadProfile: fetchProfile } = useProfile()
 
 const profile = ref({
   name: '',
@@ -68,7 +70,7 @@ const editingAccount = ref<Partial<BankAccount>>({
 })
 
 const loadProfile = async () => {
-  const data = await window.electronAPI.dbGet<Profile>('SELECT * FROM profile WHERE id = 1')
+  const data = await fetchProfile()
   if (data) {
     profile.value = {
       name: data.name ?? '',
@@ -122,7 +124,9 @@ const handleSignatureFile = (event: Event) => {
   }
 
   const reader = new FileReader()
-  reader.onload = () => saveSignature(reader.result as string)
+  reader.onload = () => {
+    if (typeof reader.result === 'string') saveSignature(reader.result)
+  }
   reader.readAsDataURL(file)
 }
 
@@ -163,9 +167,15 @@ const loadBankAccounts = async () => {
   bankAccounts.value = data
 }
 
+const validateProfile = (): string | null => {
+  if (!profile.value.name.trim()) return 'El nombre es requerido'
+  return null
+}
+
 const saveProfile = async () => {
-  if (!profile.value.name.trim()) {
-    toast({ title: 'Error', description: 'El nombre es requerido', variant: 'destructive' })
+  const error = validateProfile()
+  if (error) {
+    toast({ title: 'Error', description: error, variant: 'destructive' })
     return
   }
   try {
@@ -205,13 +215,16 @@ const openEditAccount = (account: BankAccount) => {
   isDialogOpen.value = true
 }
 
+const validateBankAccount = (): string | null => {
+  if (!editingAccount.value.bank?.trim()) return 'El banco es requerido'
+  if (!editingAccount.value.account_number?.trim()) return 'El número de cuenta es requerido'
+  return null
+}
+
 const saveBankAccount = async () => {
-  if (!editingAccount.value.bank || !editingAccount.value.account_number) {
-    toast({
-      title: 'Error',
-      description: 'Todos los campos son requeridos',
-      variant: 'destructive',
-    })
+  const error = validateBankAccount()
+  if (error) {
+    toast({ title: 'Error', description: error, variant: 'destructive' })
     return
   }
 

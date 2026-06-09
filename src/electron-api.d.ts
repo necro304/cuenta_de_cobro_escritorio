@@ -9,7 +9,7 @@ export interface ElectronAPI {
   ) => Promise<{ changes: number; lastInsertRowid: number | bigint }>
   dbBackup: () => Promise<{ success: boolean; message: string }>
   dbRestore: () => Promise<{ success: boolean; message: string }>
-  checkForUpdates: () => Promise<unknown>
+  checkForUpdates: () => Promise<{ updateInfo?: { version: string } } | null>
   exportPdf: (opts: {
     invoiceId: number
     invoiceNumber: number

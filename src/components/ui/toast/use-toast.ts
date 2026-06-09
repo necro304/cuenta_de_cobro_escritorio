@@ -73,18 +73,20 @@ const state = ref<State>({
 })
 
 function dispatch(action: Action) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const currentToasts = state.value.toasts as any[]
+  // El array de toasts desenvuelto por reactividad provoca una instanciación de tipos
+  // demasiado profunda (TS2589) por los VNode; se opera sobre el tipo plano State.
+  const s = state.value as unknown as State
+  const currentToasts = s.toasts
 
   switch (action.type) {
     case actionTypes.ADD_TOAST: {
       currentToasts.unshift(action.toast)
-      state.value.toasts = currentToasts.slice(0, TOAST_LIMIT)
+      s.toasts = currentToasts.slice(0, TOAST_LIMIT)
       break
     }
 
     case actionTypes.UPDATE_TOAST: {
-      state.value.toasts = currentToasts.map((t) => {
+      s.toasts = currentToasts.map((t) => {
         if (t.id === action.toast.id) {
           return Object.assign({}, t, action.toast)
         }
@@ -104,15 +106,15 @@ function dispatch(action: Action) {
         })
       }
 
-      state.value.toasts = currentToasts.map((t) =>
+      s.toasts = currentToasts.map((t) =>
         t.id === toastId || toastId === undefined ? Object.assign({}, t, { open: false }) : t,
       )
       break
     }
 
     case actionTypes.REMOVE_TOAST:
-      if (action.toastId === undefined) state.value.toasts = []
-      else state.value.toasts = currentToasts.filter((t) => t.id !== action.toastId)
+      if (action.toastId === undefined) s.toasts = []
+      else s.toasts = currentToasts.filter((t) => t.id !== action.toastId)
 
       break
   }

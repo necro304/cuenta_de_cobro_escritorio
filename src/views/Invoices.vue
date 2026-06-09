@@ -26,8 +26,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/toast/use-toast'
+import { useProfile } from '@/composables/useProfile'
+import { formatCurrency, getTodayDate } from '@/lib/format'
+import { calculateBalance, determineStatus, INVOICE_STATUS_LABELS } from '@/lib/invoice'
 import SignatureAskDialog from '@/components/SignatureAskDialog.vue'
-import type { Invoice, InvoicePayment, Profile } from '@/types'
+import type { Invoice, InvoicePayment } from '@/types'
 
 const router = useRouter()
 const { toast } = useToast()
@@ -35,14 +38,9 @@ const invoices = ref<Invoice[]>([])
 const isLoading = ref(true)
 
 // Perfil para la descarga rápida de PDF (plantilla predeterminada y modo de firma)
-const profile = ref<Partial<Profile>>({})
+const { profile, loadProfile } = useProfile()
 const isAskDialogOpen = ref(false)
 const pendingPdfInvoice = ref<Invoice | null>(null)
-
-const loadProfile = async () => {
-  const data = await window.electronAPI.dbGet<Profile>('SELECT * FROM profile WHERE id = 1')
-  if (data) profile.value = data
-}
 
 const exportPdf = async (invoice: Invoice, includeSignature: boolean) => {
   const result = await window.electronAPI.exportPdf({
@@ -111,7 +109,7 @@ const isPaymentsModalOpen = ref(false)
 const selectedInvoice = ref<Invoice | null>(null)
 const payments = ref<InvoicePayment[]>([])
 const newPayment = ref({
-  date: new Date().toISOString().split('T')[0],
+  date: getTodayDate(),
   amount: 0,
   notes: '',
 })
@@ -119,7 +117,7 @@ const newPayment = ref({
 const balancePendiente = computed(() => {
   if (!selectedInvoice.value) return 0
   const totalPagado = payments.value.reduce((sum, p) => sum + p.amount, 0)
-  return Math.max(0, selectedInvoice.value.total - totalPagado)
+  return calculateBalance(selectedInvoice.value.total, totalPagado)
 })
 
 const loadInvoices = async () => {
@@ -140,8 +138,8 @@ const loadInvoices = async () => {
 const openPayments = async (invoice: Invoice) => {
   selectedInvoice.value = invoice
   newPayment.value = {
-    date: new Date().toISOString().split('T')[0],
-    amount: Math.max(0, invoice.total - (invoice.paid_amount || 0)),
+    date: getTodayDate(),
+    amount: calculateBalance(invoice.total, invoice.paid_amount || 0),
     notes: '',
   }
   await loadPayments(invoice.id)
@@ -160,16 +158,7 @@ const checkAndUpdateInvoiceStatus = async (invoiceId: number) => {
   const invoice = invoices.value.find((i) => i.id === invoiceId)
   if (!invoice) return
 
-  const totalPaid = invoice.paid_amount || 0
-  let newStatus = invoice.status
-
-  if (totalPaid >= invoice.total) {
-    newStatus = 'paid'
-  } else if (totalPaid > 0) {
-    newStatus = 'partially_paid'
-  } else {
-    newStatus = 'draft'
-  }
+  const newStatus = determineStatus(invoice.total, invoice.paid_amount || 0)
 
   if (newStatus !== invoice.status) {
     await window.electronAPI.dbRun('UPDATE invoices SET status = ? WHERE id = ?', [
@@ -180,10 +169,16 @@ const checkAndUpdateInvoiceStatus = async (invoiceId: number) => {
   }
 }
 
+const validatePayment = (): string | null => {
+  if (newPayment.value.amount <= 0) return 'El monto debe ser mayor a 0'
+  return null
+}
+
 const savePayment = async () => {
   if (!selectedInvoice.value) return
-  if (newPayment.value.amount <= 0) {
-    toast({ title: 'SYS_ERR', description: 'El monto debe ser mayor a 0', variant: 'destructive' })
+  const error = validatePayment()
+  if (error) {
+    toast({ title: 'SYS_ERR', description: error, variant: 'destructive' })
     return
   }
 
@@ -346,18 +341,16 @@ onMounted(() => {
             </td>
             <td class="p-4 border-r-[3px] border-foreground text-right font-black text-lg">
               <div class="flex flex-col">
-                <span>${{ invoice.total.toLocaleString() }}</span>
+                <span>${{ formatCurrency(invoice.total) }}</span>
                 <span
                   class="text-xs font-mono tracking-widest uppercase mt-1"
                   :class="
-                    invoice.total - (invoice.paid_amount || 0) <= 0
+                    calculateBalance(invoice.total, invoice.paid_amount || 0) <= 0
                       ? 'text-green-600'
                       : 'text-muted-foreground'
                   "
                 >
-                  Saldo: ${{
-                    Math.max(0, invoice.total - (invoice.paid_amount || 0)).toLocaleString()
-                  }}
+                  Saldo: ${{ formatCurrency(calculateBalance(invoice.total, invoice.paid_amount || 0)) }}
                 </span>
               </div>
             </td>
@@ -370,13 +363,7 @@ onMounted(() => {
                   'bg-yellow-400 text-black': invoice.status === 'draft',
                 }"
               >
-                {{
-                  invoice.status === 'paid'
-                    ? 'Pagada'
-                    : invoice.status === 'partially_paid'
-                      ? 'Abonada'
-                      : 'Pendiente'
-                }}
+                {{ INVOICE_STATUS_LABELS[invoice.status] }}
               </span>
             </td>
             <td class="p-4 text-center">
@@ -522,20 +509,20 @@ onMounted(() => {
           <div class="grid grid-cols-3 gap-4 border-[3px] border-foreground p-4 bg-secondary">
             <div>
               <p class="text-xs uppercase tracking-widest text-muted-foreground font-bold">Total</p>
-              <p class="font-black text-lg">${{ selectedInvoice?.total.toLocaleString() }}</p>
+              <p class="font-black text-lg">${{ formatCurrency(selectedInvoice?.total) }}</p>
             </div>
             <div>
               <p class="text-xs uppercase tracking-widest text-muted-foreground font-bold">
                 Pagado
               </p>
               <p class="font-black text-lg text-green-600">
-                ${{ (selectedInvoice?.total! - balancePendiente).toLocaleString() }}
+                ${{ formatCurrency((selectedInvoice?.total ?? 0) - balancePendiente) }}
               </p>
             </div>
             <div>
               <p class="text-xs uppercase tracking-widest text-muted-foreground font-bold">Saldo</p>
               <p class="font-black text-lg text-destructive">
-                ${{ balancePendiente.toLocaleString() }}
+                ${{ formatCurrency(balancePendiente) }}
               </p>
             </div>
           </div>
@@ -614,7 +601,7 @@ onMounted(() => {
                 class="flex justify-between items-center border-2 border-foreground p-3 bg-secondary"
               >
                 <div>
-                  <p class="font-bold text-base">${{ payment.amount.toLocaleString() }}</p>
+                  <p class="font-bold text-base">${{ formatCurrency(payment.amount) }}</p>
                   <p class="text-xs text-muted-foreground">
                     {{ payment.date }} <span v-if="payment.notes">| {{ payment.notes }}</span>
                   </p>

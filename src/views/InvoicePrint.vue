@@ -12,9 +12,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast/use-toast'
+import { useProfile } from '@/composables/useProfile'
 import SignatureAskDialog from '@/components/SignatureAskDialog.vue'
 import type {
-  Profile,
   Client,
   Invoice,
   InvoiceItem,
@@ -35,7 +35,7 @@ const invoiceId = Array.isArray(route.params.id) ? route.params.id[0] : route.pa
 // ?pdf=1&template=X&signature=0|1 y avisa con notifyPrintReady() al terminar
 const isPdfMode = route.query.pdf === '1'
 
-const profile = ref<Partial<Profile>>({})
+const { profile, loadProfile } = useProfile()
 const client = ref<Partial<Client>>({})
 const invoice = ref<Partial<Invoice>>({})
 const items = ref<InvoiceItem[]>([])
@@ -64,10 +64,8 @@ const signatureChoice = computed({
 const asTemplateId = (value: unknown): TemplateId => (value === 'simple' ? 'simple' : 'default')
 
 const loadData = async () => {
-  const profileData = await window.electronAPI.dbGet<Profile>('SELECT * FROM profile WHERE id = 1')
+  const profileData = await loadProfile()
   if (profileData) {
-    profile.value = profileData
-
     if (isPdfMode) {
       selectedTemplate.value = asTemplateId(route.query.template)
       includeSignature.value = route.query.signature === '1'

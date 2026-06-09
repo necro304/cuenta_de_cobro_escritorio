@@ -25,13 +25,10 @@ import {
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast/use-toast'
-import type { Client, Invoice, InvoiceItem, BankAccount } from '@/types'
-
-type InvoiceItemForm = {
-  description: string
-  quantity: number
-  price: number
-}
+import { useClients } from '@/composables/useClients'
+import { formatCurrency, getTodayDate } from '@/lib/format'
+import { INVOICE_STATUS_OPTIONS } from '@/lib/invoice'
+import type { Invoice, InvoiceItem, BankAccount, InvoiceItemForm } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -41,11 +38,11 @@ const isEditing = ref(false)
 const invoiceIdToEdit = ref<number | null>(null)
 const isClientSelectorOpen = ref(false)
 
-const clients = ref<Client[]>([])
+const { clients, loadClients } = useClients()
 const bankAccounts = ref<BankAccount[]>([])
 const invoice = ref({
   number: '',
-  date: new Date().toISOString().split('T')[0],
+  date: getTodayDate(),
   client_id: '',
   bank_account_id: '',
   notes: '',
@@ -61,9 +58,7 @@ const total = computed(() => {
 })
 
 const loadData = async () => {
-  clients.value = await window.electronAPI.dbQuery<Client>(
-    'SELECT * FROM clients ORDER BY name ASC',
-  )
+  await loadClients()
   bankAccounts.value = await window.electronAPI.dbQuery<BankAccount>(
     'SELECT * FROM bank_accounts ORDER BY is_default DESC, bank ASC',
   )
@@ -182,12 +177,12 @@ const saveInvoice = async () => {
         ],
       )
 
-      const invoiceId = result.lastInsertRowid
+      const invoiceId = Number(result.lastInsertRowid)
 
       for (const item of invoice.value.items) {
         await window.electronAPI.dbRun(
           'INSERT INTO invoice_items (invoice_id, description, quantity, price) VALUES (?, ?, ?, ?)',
-          [invoiceId as number, item.description, Number(item.quantity), Number(item.price)],
+          [invoiceId, item.description, Number(item.quantity), Number(item.price)],
         )
       }
       toast({ title: 'Éxito', description: 'Cuenta de cobro guardada correctamente' })
@@ -259,9 +254,12 @@ onMounted(loadData)
                     <SelectValue placeholder="Selecciona un estado" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">Pendiente</SelectItem>
-                    <SelectItem value="partially_paid">Abonada</SelectItem>
-                    <SelectItem value="paid">Pagada</SelectItem>
+                    <SelectItem
+                      v-for="opt in INVOICE_STATUS_OPTIONS"
+                      :key="opt.value"
+                      :value="opt.value"
+                      >{{ opt.label }}</SelectItem
+                    >
                   </SelectContent>
                 </Select>
               </div>
@@ -392,7 +390,7 @@ onMounted(loadData)
           <CardContent class="space-y-4">
             <div class="flex justify-between text-lg font-bold">
               <span>Total</span>
-              <span>${{ total.toLocaleString() }}</span>
+              <span>${{ formatCurrency(total) }}</span>
             </div>
             <div class="grid gap-2 pt-4 border-t">
               <Label>Notas / Observaciones</Label>

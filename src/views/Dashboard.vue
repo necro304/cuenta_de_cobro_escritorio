@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { FileText, Users, DollarSign } from '@lucide/vue'
+import { useToast } from '@/components/ui/toast/use-toast'
+import { formatCurrency } from '@/lib/format'
 import { useTheme } from '@/composables/useTheme'
 import RetroSpinner from '@/components/ui/animations/RetroSpinner.vue'
 import DataWaves from '@/components/ui/animations/DataWaves.vue'
@@ -19,6 +21,8 @@ import {
 } from 'chart.js'
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement)
+
+const { toast } = useToast()
 
 // Chart.js pinta en canvas y no entiende var(--...): se leen los colores
 // resueltos del tema y se recalculan cuando cambia
@@ -170,8 +174,12 @@ onMounted(async () => {
       totalClients: clients[0].count || 0,
       totalAmount: invoices[0].total || 0,
     }
-  } catch (e) {
-    console.error(e)
+  } catch {
+    toast({
+      title: 'Error',
+      description: 'No se pudieron cargar las estadísticas',
+      variant: 'destructive',
+    })
   } finally {
     isLoading.value = false
   }
@@ -287,7 +295,7 @@ onMounted(async () => {
         </div>
         <div>
           <div class="text-5xl md:text-6xl font-black tracking-tighter" v-if="!isLoading">
-            <span class="text-3xl opacity-80 mr-1">$</span>{{ stats.totalAmount.toLocaleString() }}
+            <span class="text-3xl opacity-80 mr-1">$</span>{{ formatCurrency(stats.totalAmount) }}
           </div>
           <div class="flex items-center justify-center py-2" v-else>
             <RetroSpinner size="48px" />
