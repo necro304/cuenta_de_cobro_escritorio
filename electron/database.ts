@@ -17,7 +17,10 @@ export function initDb() {
       phone TEXT,
       email TEXT,
       bank_info TEXT,
-      signature_path TEXT
+      signature_path TEXT,
+      signature TEXT,
+      signature_mode TEXT DEFAULT 'auto',
+      default_template TEXT DEFAULT 'default'
     );
 
     CREATE TABLE IF NOT EXISTS clients (
@@ -95,6 +98,24 @@ export function initDb() {
 
   try {
     db.prepare('ALTER TABLE profile ADD COLUMN rut TEXT').run()
+  } catch {
+    // Column might already exist
+  }
+
+  try {
+    db.prepare('ALTER TABLE profile ADD COLUMN signature TEXT').run()
+  } catch {
+    // Column might already exist
+  }
+
+  try {
+    db.prepare("ALTER TABLE profile ADD COLUMN signature_mode TEXT DEFAULT 'auto'").run()
+  } catch {
+    // Column might already exist
+  }
+
+  try {
+    db.prepare("ALTER TABLE profile ADD COLUMN default_template TEXT DEFAULT 'default'").run()
   } catch {
     // Column might already exist
   }

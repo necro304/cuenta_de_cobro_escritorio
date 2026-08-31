@@ -1,9 +1,14 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
-import { autoUpdater } from 'electron-updater'
+// electron-updater es CJS: sin named exports al importarlo desde ESM
+import electronUpdater from 'electron-updater'
+
+const { autoUpdater } = electronUpdater
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
 import db, { initDb } from './database'
+import { cuentaDeCobroModule } from './cuentaDeCobro'
+import type { CuentaDeCobroTarget, SaveCuentaDeCobroCommand } from '../src/types/cuentaDeCobro'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -23,6 +28,8 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1300,
     height: 800,
+    minWidth: 640,
+    minHeight: 600,
     icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
@@ -31,7 +38,7 @@ function createWindow() {
   })
 
   if (process.platform === 'darwin') {
-    app.dock.setIcon(path.join(process.env.VITE_PUBLIC, 'icon.png'))
+    app.dock?.setIcon(path.join(process.env.VITE_PUBLIC, 'icon.png'))
   }
 
   if (VITE_DEV_SERVER_URL) {
@@ -67,6 +74,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('db-run', (_event, sql: string, params?: unknown[]) => {
     return db.prepare(sql).run(params ?? [])
+  })
+
+  ipcMain.handle('cuenta-de-cobro:open', (_event, target: CuentaDeCobroTarget) => {
+    return cuentaDeCobroModule.open(target)
+  })
+
+  ipcMain.handle('cuenta-de-cobro:save', (_event, command: SaveCuentaDeCobroCommand) => {
+    return cuentaDeCobroModule.save(command)
   })
 
   ipcMain.handle('db-backup', async () => {
@@ -123,6 +138,78 @@ app.whenReady().then(() => {
     const result = await autoUpdater.checkForUpdates()
     return result
   })
+
+  // Resolvers de ventanas ocultas esperando la señal 'print-ready' del renderer
+  const printReadyResolvers = new Map<number, () => void>()
+
+  ipcMain.on('print-ready', (event) => {
+    printReadyResolvers.get(event.sender.id)?.()
+  })
+
+  ipcMain.handle(
+    'export-pdf',
+    async (
+      _event,
+      opts: {
+        invoiceId: number
+        invoiceNumber: number
+        template: string
+        includeSignature: boolean
+      },
+    ) => {
+      if (!win) return { success: false, message: 'No window found' }
+
+      const defaultName = `cuenta_de_cobro_${opts.invoiceNumber.toString().padStart(5, '0')}.pdf`
+      const { canceled, filePath } = await dialog.showSaveDialog(win, {
+        title: 'Descargar PDF',
+        defaultPath: path.join(app.getPath('downloads'), defaultName),
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      })
+      if (canceled || !filePath) return { success: false, message: 'Operación cancelada.' }
+
+      // Ventana oculta que renderiza la vista de impresión con plantilla y firma fijadas
+      const pdfWin = new BrowserWindow({
+        show: false,
+        width: 900,
+        height: 1200,
+        webPreferences: {
+          preload: path.join(__dirname, 'preload.mjs'),
+        },
+      })
+
+      try {
+        const hash = `/print/${opts.invoiceId}?pdf=1&template=${opts.template}&signature=${opts.includeSignature ? 1 : 0}`
+
+        const ready = new Promise<void>((resolve, reject) => {
+          printReadyResolvers.set(pdfWin.webContents.id, resolve)
+          setTimeout(() => reject(new Error('Tiempo de espera agotado generando el PDF')), 10_000)
+        })
+
+        if (VITE_DEV_SERVER_URL) {
+          await pdfWin.loadURL(`${VITE_DEV_SERVER_URL}#${hash}`)
+        } else {
+          await pdfWin.loadFile(path.join(RENDERER_DIST, 'index.html'), { hash })
+        }
+
+        await ready
+
+        // Mismos márgenes que la impresión (@page { margin: 1.5cm } → pulgadas)
+        const margin = 1.5 / 2.54
+        const pdfData = await pdfWin.webContents.printToPDF({
+          printBackground: true,
+          pageSize: 'Letter',
+          margins: { top: margin, bottom: margin, left: margin, right: margin },
+        })
+        fs.writeFileSync(filePath, pdfData)
+        return { success: true, message: filePath }
+      } catch (err: unknown) {
+        return { success: false, message: (err as Error).message }
+      } finally {
+        printReadyResolvers.delete(pdfWin.webContents.id)
+        pdfWin.destroy()
+      }
+    },
+  )
 
   createWindow()
 

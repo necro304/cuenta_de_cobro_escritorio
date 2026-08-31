@@ -29,6 +29,9 @@ jobs:
       - name: Type Check
         run: npx vue-tsc --noEmit
 
+      - name: Test Cuenta de Cobro Persistence
+        run: xvfb-run -a npm run test:database
+
       - name: Build Application
         run: npx vite build
         env:

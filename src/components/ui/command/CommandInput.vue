@@ -2,7 +2,7 @@
 import type { ListboxFilterProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
-import { Search } from 'lucide-vue-next'
+import { Search } from '@lucide/vue'
 import { ListboxFilter, useForwardProps } from 'reka-ui'
 import { cn } from '@/lib/utils'
 import { useCommand } from '.'
@@ -33,7 +33,7 @@ const { filterState } = useCommand()
       auto-focus
       :class="
         cn(
-          'flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
+          'flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
           props.class,
         )
       "

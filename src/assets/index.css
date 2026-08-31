@@ -1,134 +1,254 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@config '../../tailwind.config.js';
 
 @layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: hsl(var(--border));
+  }
+
   :root {
-    /* Off-white "newsprint" background */
-    --background: 40 33% 96%;
-    --foreground: 0 0% 4%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 4%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 4%;
-
-    --primary: 0 0% 4%;
-    --primary-foreground: 40 33% 96%;
-
-    --secondary: 40 10% 90%;
-    --secondary-foreground: 0 0% 4%;
-
-    --muted: 40 10% 90%;
-    --muted-foreground: 0 0% 40%;
-
-    /* Bright neon accent (e.g. Electric Blue) */
-    --accent: 230 100% 60%;
-    --accent-foreground: 0 0% 100%;
-
-    /* Pure brutalist red */
-    --destructive: 0 100% 50%;
-    --destructive-foreground: 0 0% 100%;
-
-    /* Pitch black borders */
-    --border: 0 0% 4%;
-    --input: 0 0% 4%;
-    --ring: 0 0% 4%;
-
-    /* Absolutely no border radius for that raw industrial look */
-    --radius: 0rem;
+    --background: 48 22% 96%;
+    --foreground: 153 18% 12%;
+    --card: 48 24% 99%;
+    --card-foreground: 150 16% 13%;
+    --popover: 120 14% 99%;
+    --popover-foreground: 150 16% 13%;
+    --primary: 151 42% 26%;
+    --primary-foreground: 120 20% 98%;
+    --secondary: 48 16% 91%;
+    --secondary-foreground: 150 16% 18%;
+    --muted: 48 16% 91%;
+    --muted-foreground: 150 7% 42%;
+    --accent: 143 24% 88%;
+    --accent-foreground: 151 42% 22%;
+    --destructive: 2 59% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 72 9% 80%;
+    --input: 72 9% 73%;
+    --ring: 151 42% 32%;
+    --success: 146 38% 34%;
+    --warning: 37 72% 42%;
+    --info: 201 48% 41%;
+    --status-success: 147 55% 24%;
+    --status-warning: 32 72% 28%;
+    --status-info: 201 56% 30%;
+    --surface-raised: 120 20% 100%;
+    --chart-1: 151 42% 32%;
+    --chart-2: 37 72% 49%;
+    --chart-3: 201 48% 48%;
+    --radius: 1.125rem;
   }
 
   .dark {
-    --background: 0 0% 4%;
-    --foreground: 40 33% 96%;
-
-    --card: 0 0% 4%;
-    --card-foreground: 40 33% 96%;
-
-    --popover: 0 0% 4%;
-    --popover-foreground: 40 33% 96%;
-
-    --primary: 40 33% 96%;
-    --primary-foreground: 0 0% 4%;
-
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 40 33% 96%;
-
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 60%;
-
-    --accent: 230 100% 65%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 100% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 40 33% 96%;
-    --input: 40 33% 96%;
-    --ring: 40 33% 96%;
+    /* Paleta solicitada: #020617 bg, #1a2d38 card, #505d67 border, #818893 muted-fg, #bec5cf fg, #0e877e accent-bg, #13b8a6 teal, #5ce6d1 primary */
+    --background: 229 84% 5%;
+    --foreground: 215 15% 78%;
+    --card: 202 37% 16%;
+    --card-foreground: 215 15% 78%;
+    --popover: 202 37% 16%;
+    --popover-foreground: 215 15% 78%;
+    --primary: 171 73% 63%;
+    --primary-foreground: 229 84% 5%;
+    --secondary: 202 33% 19%;
+    --secondary-foreground: 215 15% 78%;
+    --muted: 202 33% 19%;
+    --muted-foreground: 217 8% 54%;
+    --accent: 176 72% 13%;
+    --accent-foreground: 171 73% 63%;
+    --destructive: 2 62% 54%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 206 13% 36%;
+    --input: 206 13% 32%;
+    --ring: 171 73% 63%;
+    --success: 173 81% 40%;
+    --warning: 38 78% 60%;
+    --info: 199 56% 65%;
+    --status-success: 171 73% 68%;
+    --status-warning: 38 82% 68%;
+    --status-info: 199 62% 72%;
+    --surface-raised: 202 37% 18%;
+    --chart-1: 171 73% 63%;
+    --chart-2: 173 81% 40%;
+    --chart-3: 176 81% 29%;
   }
-}
 
-@layer base {
-  * {
-    @apply border-border;
+  html {
+    color-scheme: light;
+    font-synthesis: none;
+    scroll-behavior: smooth;
   }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
   body {
-    @apply bg-background text-foreground;
-    font-family: 'IBM Plex Mono', monospace;
-    /* Subtle dot matrix background */
-    background-image: radial-gradient(circle, hsl(var(--foreground) / 0.1) 1px, transparent 1px);
-    background-size: 24px 24px;
-    background-position: 0 0;
+    min-width: 20rem;
+    min-height: 100dvh;
+    margin: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 88% 4%, hsl(var(--primary) / 0.08), transparent 25rem),
+      hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Outfit Variable', 'Avenir Next', Avenir, ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+    font-variation-settings: 'wght' 430;
   }
+
+  body::before {
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(hsl(var(--foreground) / 0.055) 0.55px, transparent 0.55px);
+    background-size: 18px 18px;
+    content: '';
+    opacity: 0.28;
+    pointer-events: none;
+  }
+
   h1,
   h2,
   h3,
   h4,
   h5,
   h6 {
-    font-family: 'Bricolage Grotesque', sans-serif;
-    font-variation-settings: 'opsz' 96;
-    letter-spacing: -0.04em;
-    text-transform: uppercase;
+    font-family: inherit;
+    letter-spacing: -0.025em;
+    text-transform: none;
+    text-wrap: balance;
+    font-variation-settings: 'wght' 620;
   }
 
-  /* Industrial selection color */
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button,
+  [role='button'],
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   ::selection {
-    background-color: hsl(var(--accent));
-    color: white;
+    background-color: hsl(var(--primary) / 0.22);
+    color: hsl(var(--foreground));
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-color: hsl(var(--border)) transparent;
+    scrollbar-width: thin;
   }
 }
 
-@layer utilities {
-  /* Brutalist hard shadows */
-  .shadow-brutal {
-    box-shadow: 4px 4px 0px 0px hsl(var(--foreground));
-  }
-  .shadow-brutal-lg {
-    box-shadow: 8px 8px 0px 0px hsl(var(--foreground));
-  }
-  .shadow-brutal-sm {
-    box-shadow: 2px 2px 0px 0px hsl(var(--foreground));
-  }
-  .dark .shadow-brutal,
-  .dark .shadow-brutal-lg,
-  .dark .shadow-brutal-sm {
-    box-shadow: none;
-    border-bottom: 2px solid hsl(var(--border));
-    border-right: 2px solid hsl(var(--border));
+@layer components {
+  .app-page {
+    @apply space-y-9 pb-12;
   }
 
-  .hover-brutal:hover {
-    transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0px 0px hsl(var(--foreground));
+  .page-header {
+    @apply flex flex-col gap-5 border-b border-border/70 pb-7 sm:flex-row sm:items-end sm:justify-between;
   }
-  .active-brutal:active {
-    transform: translate(2px, 2px);
-    box-shadow: 0px 0px 0px 0px hsl(var(--foreground));
+
+  .page-title {
+    @apply text-[2.125rem] font-semibold leading-[0.95] tracking-[-0.05em] sm:text-[2.75rem];
+  }
+
+  .page-description {
+    @apply mt-3 max-w-[65ch] text-[0.9375rem] leading-6 text-muted-foreground;
+    text-wrap: pretty;
+  }
+
+  .surface {
+    @apply rounded-[1.125rem] border border-border/70 bg-card text-card-foreground shadow-[0_1px_2px_hsl(var(--foreground)/0.025),0_18px_42px_hsl(var(--primary)/0.055)];
+  }
+
+  .section-title {
+    @apply text-lg font-semibold tracking-[-0.025em];
+  }
+
+  .field-label {
+    @apply text-sm font-medium text-foreground;
+  }
+
+  .form-control {
+    @apply h-11 w-full rounded-lg border border-input bg-background/80 px-3 text-sm text-foreground shadow-[inset_0_1px_0_hsl(var(--foreground)/0.02)] transition-[border-color,box-shadow,background-color] placeholder:text-muted-foreground focus:border-ring focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/15;
+  }
+
+  .icon-button {
+    @apply inline-flex size-10 items-center justify-center rounded-lg border border-border/80 bg-card text-muted-foreground transition-[color,background-color,border-color,transform] hover:border-input hover:bg-secondary hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  .table-shell {
+    @apply overflow-hidden rounded-[1.125rem] border border-border/70 bg-card shadow-[0_1px_2px_hsl(var(--foreground)/0.025),0_18px_42px_hsl(var(--primary)/0.055)];
+  }
+
+  .data-table {
+    @apply w-full min-w-[760px] border-collapse text-left text-sm;
+  }
+
+  .data-table thead {
+    @apply bg-secondary/70 text-[0.6875rem] font-semibold tracking-[0.04em] text-muted-foreground;
+  }
+
+  .data-table th {
+    @apply h-11 px-4 align-middle;
+  }
+
+  .data-table td {
+    @apply border-t px-4 py-3.5 align-middle;
+  }
+
+  .data-table tbody tr {
+    @apply transition-colors hover:bg-accent/35;
+  }
+
+  .empty-state {
+    @apply flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center;
+  }
+
+  .empty-state-icon {
+    @apply mb-4 flex size-12 items-center justify-center rounded-xl bg-secondary text-muted-foreground;
+  }
+
+  .metric-value {
+    font-variant-numeric: tabular-nums;
+    @apply font-mono tracking-[-0.04em];
+  }
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  body::before {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Plus, Trash2, ArrowLeft, Check, ChevronsUpDown } from 'lucide-vue-next'
-import ScanningLine from '@/components/ui/animations/ScanningLine.vue'
+import { Plus, Trash2, ArrowLeft, Check, ChevronsUpDown, RotateCcw } from '@lucide/vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,13 +25,15 @@ import {
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast/use-toast'
-import type { Client, Invoice, InvoiceItem, BankAccount } from '@/types'
-
-type InvoiceItemForm = {
-  description: string
-  quantity: number
-  price: number
-}
+import { calculatePreviewTotal, formatMoneyForDisplay } from '@/lib/cuentaDeCobroMoney'
+import type {
+  ClienteOption,
+  CuentaBancariaOption,
+  CuentaDeCobroDiagnostic,
+  CuentaDeCobroDraft,
+  CuentaDeCobroError,
+  CuentaDeCobroValidationIssue,
+} from '@/types/cuentaDeCobro'
 
 const router = useRouter()
 const route = useRoute()
@@ -40,97 +42,166 @@ const { toast } = useToast()
 const isEditing = ref(false)
 const invoiceIdToEdit = ref<number | null>(null)
 const isClientSelectorOpen = ref(false)
+const isLoading = ref(true)
+const isSaving = ref(false)
+const loadError = ref(false)
 
-const clients = ref<Client[]>([])
-const bankAccounts = ref<BankAccount[]>([])
-const invoice = ref({
+const clients = ref<ClienteOption[]>([])
+const bankAccounts = ref<CuentaBancariaOption[]>([])
+const invoice = ref<CuentaDeCobroDraft>({
   number: '',
-  date: new Date().toISOString().split('T')[0],
-  client_id: '',
-  bank_account_id: '',
+  date: '',
+  clientId: null,
+  bankAccountId: null,
   notes: '',
-  status: 'draft',
-  items: [{ description: '', quantity: 1, price: 0 }] as InvoiceItemForm[],
+  concepts: [{ description: '', quantity: '1', price: '' }],
 })
 
-const total = computed(() => {
-  return invoice.value.items.reduce(
-    (sum, item) => sum + Number(item.quantity) * Number(item.price),
-    0,
-  )
+const total = computed(() => calculatePreviewTotal(invoice.value.concepts))
+
+const selectedBankAccountId = computed({
+  get: () => invoice.value.bankAccountId?.toString() ?? '',
+  set: (value: string) => {
+    invoice.value.bankAccountId = value ? Number(value) : null
+  },
+})
+
+const describeDiagnostic = (diagnostic: CuentaDeCobroDiagnostic): string => {
+  switch (diagnostic.code) {
+    case 'HISTORIC_NUMBER_CONFLICT':
+      return `El número ${diagnostic.number} también pertenece a otra cuenta.`
+    case 'MISSING_CLIENT_REFERENCE':
+      return 'El cliente anterior ya no existe; selecciona otro.'
+    case 'MISSING_BANK_ACCOUNT_REFERENCE':
+      return 'La cuenta bancaria anterior ya no existe; selecciona otra.'
+    case 'INVALID_PERSISTED_ACCOUNT':
+      return 'Los datos generales guardados deben corregirse antes de actualizar.'
+    case 'INVALID_PERSISTED_CONCEPTS':
+      return 'Los conceptos guardados deben corregirse antes de actualizar.'
+    case 'INVALID_PERSISTED_PAYMENTS':
+      return 'Los abonos guardados contienen valores inválidos.'
+  }
+}
+
+const describeValidationIssue = (issue: CuentaDeCobroValidationIssue): string => {
+  switch (issue.code) {
+    case 'REQUIRED':
+      if (issue.field === 'clientId') return 'Selecciona un cliente.'
+      if (issue.field === 'bankAccountId') return 'Selecciona una cuenta bancaria.'
+      return 'Todos los conceptos deben tener descripción.'
+    case 'INVALID_POSITIVE_INTEGER':
+      return 'El número debe ser un entero mayor a 0.'
+    case 'INVALID_DATE':
+      return 'La fecha no es válida.'
+    case 'INVALID_POSITIVE_DECIMAL':
+      return issue.field.endsWith('.quantity')
+        ? 'Todas las cantidades deben ser mayores a 0.'
+        : 'Todos los precios deben ser mayores a 0.'
+    case 'AT_LEAST_ONE_CONCEPT_REQUIRED':
+      return 'Agrega al menos un concepto válido.'
+    case 'SUBTOTAL_ROUNDS_TO_ZERO':
+      return 'Cada concepto debe producir un subtotal mínimo de 0,01.'
+    case 'AMOUNT_OUT_OF_RANGE':
+      return 'Uno de los valores monetarios es demasiado grande o preciso.'
+  }
+}
+
+const describeSaveError = (error: CuentaDeCobroError): string => {
+  switch (error.code) {
+    case 'VALIDATION_FAILED':
+      return describeValidationIssue(error.issues[0])
+    case 'CUENTA_DE_COBRO_NOT_FOUND':
+      return 'La cuenta de cobro ya no existe.'
+    case 'CLIENTE_NOT_FOUND':
+      return 'El cliente seleccionado ya no existe.'
+    case 'CUENTA_BANCARIA_NOT_FOUND':
+      return 'La cuenta bancaria seleccionada ya no existe.'
+    case 'NUMBER_IN_USE':
+      return error.suggestedNumber
+        ? `El número ${error.number} ya está en uso. Puedes usar el ${error.suggestedNumber}.`
+        : `El número ${error.number} ya está en uso.`
+    case 'TOTAL_BELOW_PAID_AMOUNT':
+      return `El total propuesto (${error.total}) es menor que los abonos registrados (${error.paidAmount}).`
+    case 'STORAGE_FAILURE':
+      return 'No se pudo guardar la cuenta de cobro. Inténtalo nuevamente.'
+  }
+}
+
+const copyDraft = (): CuentaDeCobroDraft => ({
+  number: invoice.value.number,
+  date: invoice.value.date,
+  clientId: invoice.value.clientId,
+  bankAccountId: invoice.value.bankAccountId,
+  notes: invoice.value.notes,
+  concepts: invoice.value.concepts.map((concept) => ({ ...concept })),
 })
 
 const loadData = async () => {
-  clients.value = await window.electronAPI.dbQuery<Client>(
-    'SELECT * FROM clients ORDER BY name ASC',
-  )
-  bankAccounts.value = await window.electronAPI.dbQuery<BankAccount>(
-    'SELECT * FROM bank_accounts ORDER BY is_default DESC, bank ASC',
-  )
+  isLoading.value = true
+  loadError.value = false
+  try {
+    const idParam = route.params.id
+    const id = idParam ? Number(idParam) : null
+    isEditing.value = id !== null
+    invoiceIdToEdit.value = id
 
-  const idParam = route.params.id
-  if (idParam) {
-    isEditing.value = true
-    invoiceIdToEdit.value = Number(idParam)
-
-    const existingInvoice = await window.electronAPI.dbGet<Invoice>(
-      'SELECT * FROM invoices WHERE id = ?',
-      [invoiceIdToEdit.value],
+    const result = await window.electronAPI.cuentaDeCobro.open(
+      id === null ? { kind: 'create' } : { kind: 'edit', id },
     )
-    if (existingInvoice) {
-      invoice.value.number = existingInvoice.number.toString()
-      invoice.value.date = existingInvoice.date
-      invoice.value.client_id = existingInvoice.client_id.toString()
-      invoice.value.bank_account_id = existingInvoice.bank_account_id?.toString() || ''
-      invoice.value.notes = existingInvoice.notes || ''
-      invoice.value.status = existingInvoice.status || 'draft'
 
-      const existingItems = await window.electronAPI.dbQuery<InvoiceItem>(
-        'SELECT * FROM invoice_items WHERE invoice_id = ?',
-        [invoiceIdToEdit.value],
-      )
-      if (existingItems && existingItems.length > 0) {
-        invoice.value.items = existingItems.map((item) => ({
-          description: item.description,
-          quantity: item.quantity,
-          price: item.price,
-        }))
-      }
+    if (!result.ok) {
+      loadError.value = true
+      toast({
+        title: 'No se pudo abrir el editor',
+        description: describeSaveError(result.error),
+        variant: 'destructive',
+      })
+      return
     }
-  } else {
-    const lastInvoice = await window.electronAPI.dbGet<{ last: number | null }>(
-      'SELECT MAX(number) as last FROM invoices',
-    )
-    invoice.value.number = ((lastInvoice?.last ?? 0) + 1).toString()
 
-    // Pre-select default bank account
-    const defaultAccount = bankAccounts.value.find((acc) => acc.is_default)
-    if (defaultAccount) {
-      invoice.value.bank_account_id = defaultAccount.id.toString()
+    invoice.value = result.value.cuenta
+    clients.value = result.value.clientes
+    bankAccounts.value = result.value.cuentasBancarias
+
+    if (result.value.diagnostics.length > 0) {
+      toast({
+        title: 'Esta cuenta requiere correcciones',
+        description: result.value.diagnostics.map(describeDiagnostic).join(' '),
+        variant: 'destructive',
+      })
     }
+  } catch {
+    loadError.value = true
+    toast({
+      title: 'No se pudo abrir el editor',
+      description: 'Intenta cargar los datos nuevamente.',
+      variant: 'destructive',
+    })
+  } finally {
+    isLoading.value = false
   }
 }
 
 const addItem = () => {
-  invoice.value.items.push({ description: '', quantity: 1, price: 0 })
+  invoice.value.concepts.push({ description: '', quantity: '1', price: '' })
 }
 
 const removeItem = (index: number) => {
-  invoice.value.items.splice(index, 1)
+  invoice.value.concepts.splice(index, 1)
 }
 
 const validate = (): string | null => {
-  if (!invoice.value.client_id) return 'Selecciona un cliente'
-  if (!invoice.value.bank_account_id) return 'Selecciona una cuenta bancaria'
-  if (!invoice.value.number || Number(invoice.value.number) <= 0)
-    return 'El número de cuenta debe ser mayor a 0'
+  if (!invoice.value.clientId) return 'Selecciona un cliente'
+  if (!invoice.value.bankAccountId) return 'Selecciona una cuenta bancaria'
+  if (!Number.isSafeInteger(Number(invoice.value.number)) || Number(invoice.value.number) <= 0)
+    return 'El número de cuenta debe ser un entero mayor a 0'
   if (!invoice.value.date) return 'La fecha es requerida'
-  if (invoice.value.items.some((item) => !item.description.trim()))
-    return 'Todos los ítems deben tener descripción'
-  if (invoice.value.items.some((item) => Number(item.quantity) <= 0))
-    return 'La cantidad de cada ítem debe ser mayor a 0'
-  if (invoice.value.items.some((item) => Number(item.price) < 0))
-    return 'El precio no puede ser negativo'
+  if (invoice.value.concepts.some((concept) => !concept.description.trim()))
+    return 'Todos los conceptos deben tener descripción'
+  if (invoice.value.concepts.some((concept) => Number(concept.quantity) <= 0))
+    return 'La cantidad de cada concepto debe ser mayor a 0'
+  if (invoice.value.concepts.some((concept) => Number(concept.price) <= 0))
+    return 'El precio de cada concepto debe ser mayor a 0'
   return null
 }
 
@@ -141,58 +212,29 @@ const saveInvoice = async () => {
     return
   }
 
+  isSaving.value = true
   try {
-    if (isEditing.value && invoiceIdToEdit.value) {
-      await window.electronAPI.dbRun(
-        'UPDATE invoices SET number = ?, date = ?, client_id = ?, bank_account_id = ?, total = ?, notes = ?, status = ? WHERE id = ?',
-        [
-          invoice.value.number,
-          invoice.value.date,
-          invoice.value.client_id,
-          invoice.value.bank_account_id,
-          total.value,
-          invoice.value.notes,
-          invoice.value.status,
-          invoiceIdToEdit.value,
-        ],
-      )
+    const result = await window.electronAPI.cuentaDeCobro.save(
+      isEditing.value && invoiceIdToEdit.value
+        ? { kind: 'edit', id: invoiceIdToEdit.value, cuenta: copyDraft() }
+        : { kind: 'create', cuenta: copyDraft() },
+    )
 
-      await window.electronAPI.dbRun('DELETE FROM invoice_items WHERE invoice_id = ?', [
-        invoiceIdToEdit.value,
-      ])
-
-      for (const item of invoice.value.items) {
-        await window.electronAPI.dbRun(
-          'INSERT INTO invoice_items (invoice_id, description, quantity, price) VALUES (?, ?, ?, ?)',
-          [invoiceIdToEdit.value, item.description, Number(item.quantity), Number(item.price)],
-        )
-      }
-      toast({ title: 'Éxito', description: 'Cuenta de cobro actualizada correctamente' })
-    } else {
-      const result = await window.electronAPI.dbRun(
-        'INSERT INTO invoices (number, date, client_id, bank_account_id, total, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [
-          invoice.value.number,
-          invoice.value.date,
-          invoice.value.client_id,
-          invoice.value.bank_account_id,
-          total.value,
-          invoice.value.notes,
-          invoice.value.status,
-        ],
-      )
-
-      const invoiceId = result.lastInsertRowid
-
-      for (const item of invoice.value.items) {
-        await window.electronAPI.dbRun(
-          'INSERT INTO invoice_items (invoice_id, description, quantity, price) VALUES (?, ?, ?, ?)',
-          [invoiceId as number, item.description, Number(item.quantity), Number(item.price)],
-        )
-      }
-      toast({ title: 'Éxito', description: 'Cuenta de cobro guardada correctamente' })
+    if (!result.ok) {
+      toast({
+        title: 'No se pudo guardar',
+        description: describeSaveError(result.error),
+        variant: 'destructive',
+      })
+      return
     }
 
+    toast({
+      title: 'Éxito',
+      description: isEditing.value
+        ? 'Cuenta de cobro actualizada correctamente'
+        : 'Cuenta de cobro guardada correctamente',
+    })
     router.push('/invoices')
   } catch {
     toast({
@@ -200,6 +242,8 @@ const saveInvoice = async () => {
       description: 'No se pudo guardar la cuenta de cobro',
       variant: 'destructive',
     })
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -207,81 +251,96 @@ onMounted(loadData)
 </script>
 
 <template>
-  <div class="space-y-12 pb-10">
-    <!-- Header -->
-    <div
-      class="border-b-[4px] border-foreground pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative overflow-hidden"
+  <div class="app-page">
+    <PageHeader
+      :title="isEditing ? 'Editar cuenta' : 'Nueva cuenta'"
+      description="Completa los datos del documento y revisa el total antes de guardar."
     >
-      <ScanningLine />
-      <div class="flex items-center gap-6">
-        <button
-          class="p-4 border-[3px] border-foreground bg-card hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-all active:translate-y-0 active:translate-x-0 active:shadow-none"
-          @click="router.back()"
-        >
-          <ArrowLeft class="h-6 w-6" />
-        </button>
-        <div>
-          <h2 class="text-5xl md:text-7xl font-black tracking-tighter uppercase leading-none mb-3">
-            {{ isEditing ? 'Editar Cuenta' : 'Nueva Cuenta' }}
-          </h2>
-          <div class="flex items-center gap-3">
-            <div
-              class="h-3 w-3 rounded-full bg-accent border border-foreground animate-pulse"
-            ></div>
-            <p class="font-mono text-xs font-bold tracking-widest text-muted-foreground uppercase">
-              Editor de Registros / SYS_EDIT
-            </p>
-          </div>
-        </div>
-      </div>
+      <template #leading>
+        <Button variant="ghost" size="sm" class="-ml-3" @click="router.push('/invoices')">
+          <ArrowLeft /> Volver a cuentas
+        </Button>
+      </template>
+    </PageHeader>
+
+    <div v-if="isLoading" class="grid gap-6 lg:grid-cols-12" aria-busy="true">
+      <div class="surface h-[420px] animate-pulse bg-secondary/70 lg:col-span-8"></div>
+      <div class="surface h-64 animate-pulse bg-secondary/70 lg:col-span-4"></div>
     </div>
 
-    <div class="grid gap-6 md:grid-cols-3">
-      <div class="md:col-span-2 space-y-6">
+    <div v-else-if="loadError" class="surface empty-state">
+      <div class="empty-state-icon"><RotateCcw /></div>
+      <h2 class="section-title">No pudimos cargar los datos</h2>
+      <p class="mt-2 text-sm text-muted-foreground">
+        Comprueba la base de datos e inténtalo nuevamente.
+      </p>
+      <Button class="mt-5" variant="outline" @click="loadData"><RotateCcw /> Reintentar</Button>
+    </div>
+
+    <div v-else class="grid gap-6 lg:grid-cols-12">
+      <div class="space-y-6 lg:col-span-8">
+        <div
+          v-if="clients.length === 0 || bankAccounts.length === 0"
+          class="rounded-lg border border-[hsl(var(--warning)/0.35)] bg-[hsl(var(--warning)/0.08)] p-4 text-sm"
+        >
+          <p class="font-semibold">Faltan datos para guardar la cuenta</p>
+          <ul class="mt-2 space-y-1 text-muted-foreground">
+            <li v-if="clients.length === 0">Registra al menos un cliente.</li>
+            <li v-if="bankAccounts.length === 0">
+              Configura una cuenta bancaria para recibir pagos.
+            </li>
+          </ul>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <Button
+              v-if="clients.length === 0"
+              variant="outline"
+              size="sm"
+              @click="router.push('/clients')"
+            >
+              Ir a clientes
+            </Button>
+            <Button
+              v-if="bankAccounts.length === 0"
+              variant="outline"
+              size="sm"
+              @click="router.push('/profile')"
+            >
+              Configurar cuenta bancaria
+            </Button>
+          </div>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>Detalles</CardTitle>
           </CardHeader>
           <CardContent class="space-y-4">
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div class="grid gap-4 sm:grid-cols-2">
               <div class="grid gap-2">
-                <Label>Número</Label>
-                <Input v-model="invoice.number" type="number" />
+                <Label for="invoice-number">Número</Label>
+                <Input id="invoice-number" v-model="invoice.number" type="number" />
               </div>
               <div class="grid gap-2">
-                <Label>Fecha</Label>
-                <Input v-model="invoice.date" type="date" />
-              </div>
-              <div class="grid gap-2">
-                <Label>Estado</Label>
-                <Select v-model="invoice.status">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Pendiente</SelectItem>
-                    <SelectItem value="partially_paid">Abonada</SelectItem>
-                    <SelectItem value="paid">Pagada</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label for="invoice-date">Fecha</Label>
+                <Input id="invoice-date" v-model="invoice.date" type="date" />
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid gap-4 sm:grid-cols-2">
               <div class="grid gap-2">
-                <Label>Cliente</Label>
+                <Label id="client-label">Cliente</Label>
                 <Popover v-model:open="isClientSelectorOpen">
                   <PopoverTrigger as-child>
                     <Button
                       variant="outline"
                       role="combobox"
+                      aria-labelledby="client-label"
                       :aria-expanded="isClientSelectorOpen"
                       class="w-full justify-between font-normal"
                     >
                       {{
-                        invoice.client_id
-                          ? clients.find((client) => client.id.toString() === invoice.client_id)
-                              ?.name
+                        invoice.clientId
+                          ? clients.find((client) => client.id === invoice.clientId)?.name
                           : 'Selecciona un cliente...'
                       }}
                       <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -299,7 +358,7 @@ onMounted(loadData)
                             :value="client.name"
                             @select="
                               () => {
-                                invoice.client_id = client.id.toString()
+                                invoice.clientId = client.id
                                 isClientSelectorOpen = false
                               }
                             "
@@ -309,9 +368,7 @@ onMounted(loadData)
                               :class="
                                 cn(
                                   'ml-auto h-4 w-4',
-                                  invoice.client_id === client.id.toString()
-                                    ? 'opacity-100'
-                                    : 'opacity-0',
+                                  invoice.clientId === client.id ? 'opacity-100' : 'opacity-0',
                                 )
                               "
                             />
@@ -324,9 +381,9 @@ onMounted(loadData)
               </div>
 
               <div class="grid gap-2">
-                <Label>Cuenta Bancaria para el Pago</Label>
-                <Select v-model="invoice.bank_account_id">
-                  <SelectTrigger>
+                <Label for="bank-account">Cuenta bancaria para el pago</Label>
+                <Select v-model="selectedBankAccountId">
+                  <SelectTrigger id="bank-account">
                     <SelectValue placeholder="Selecciona una cuenta" />
                   </SelectTrigger>
                   <SelectContent>
@@ -335,7 +392,7 @@ onMounted(loadData)
                       :key="account.id"
                       :value="account.id.toString()"
                     >
-                      {{ account.bank }} - {{ account.account_type }} ({{ account.account_number }})
+                      {{ account.bank }} - {{ account.accountType }} ({{ account.accountNumber }})
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -345,36 +402,49 @@ onMounted(loadData)
         </Card>
 
         <Card>
-          <CardHeader class="flex flex-row items-center justify-between">
-            <CardTitle>Ítems / Conceptos</CardTitle>
+          <CardHeader class="flex flex-row items-center justify-between gap-4">
+            <div>
+              <CardTitle>Conceptos</CardTitle>
+              <p class="mt-1 text-sm text-muted-foreground">
+                Describe cada servicio o producto cobrado.
+              </p>
+            </div>
             <Button variant="outline" size="sm" @click="addItem" class="gap-1">
-              <Plus class="h-4 w-4" /> Agregar Ítem
+              <Plus class="h-4 w-4" /> Agregar
             </Button>
           </CardHeader>
           <CardContent class="space-y-4">
             <div
-              v-for="(item, index) in invoice.items"
+              v-for="(item, index) in invoice.concepts"
               :key="index"
-              class="grid grid-cols-12 gap-4 items-end"
+              class="grid grid-cols-12 gap-3 rounded-lg bg-secondary/55 p-3 sm:gap-4"
             >
-              <div class="col-span-6 grid gap-2">
-                <Label v-if="index === 0">Descripción</Label>
+              <div class="col-span-12 grid gap-2 sm:col-span-6">
+                <Label>Descripción</Label>
                 <Input v-model="item.description" placeholder="Ej: Servicio de consultoría..." />
               </div>
-              <div class="col-span-2 grid gap-2">
-                <Label v-if="index === 0">Cant.</Label>
-                <Input v-model.number="item.quantity" type="number" step="0.01" min="0.01" />
+              <div class="col-span-4 grid gap-2 sm:col-span-2">
+                <Label>Cantidad</Label>
+                <Input v-model="item.quantity" type="number" step="0.01" min="0.01" />
               </div>
-              <div class="col-span-3 grid gap-2">
-                <Label v-if="index === 0">Precio Unit.</Label>
-                <Input v-model.number="item.price" type="number" min="0" />
+              <div class="col-span-6 grid gap-2 sm:col-span-3">
+                <Label>Precio unitario</Label>
+                <Input v-model="item.price" type="number" step="0.01" min="0.01" />
+                <p class="text-xs text-muted-foreground">
+                  Subtotal
+                  <span class="metric-value font-semibold text-foreground">
+                    ${{ formatMoneyForDisplay(calculatePreviewTotal([item])) }}
+                  </span>
+                </p>
               </div>
-              <div class="col-span-1">
+              <div class="col-span-2 flex items-end justify-end sm:col-span-1">
                 <Button
                   variant="ghost"
                   size="icon"
                   @click="removeItem(index)"
-                  :disabled="invoice.items.length === 1"
+                  :disabled="invoice.concepts.length === 1"
+                  aria-label="Eliminar concepto"
+                  title="Eliminar concepto"
                 >
                   <Trash2 class="h-4 w-4 text-destructive" />
                 </Button>
@@ -384,26 +454,30 @@ onMounted(loadData)
         </Card>
       </div>
 
-      <div class="space-y-6">
-        <Card>
+      <div class="space-y-6 lg:col-span-4">
+        <Card class="lg:sticky lg:top-0">
           <CardHeader>
-            <CardTitle>Resumen</CardTitle>
+            <CardTitle>Resumen de la cuenta</CardTitle>
           </CardHeader>
           <CardContent class="space-y-4">
-            <div class="flex justify-between text-lg font-bold">
-              <span>Total</span>
-              <span>${{ total.toLocaleString() }}</span>
+            <div class="rounded-xl bg-accent p-5 text-accent-foreground">
+              <p class="text-sm font-medium opacity-80">Total</p>
+              <p class="metric-value mt-2 overflow-x-auto whitespace-nowrap text-3xl font-semibold">
+                ${{ formatMoneyForDisplay(total) }}
+              </p>
             </div>
             <div class="grid gap-2 pt-4 border-t">
-              <Label>Notas / Observaciones</Label>
+              <Label for="invoice-notes">Notas u observaciones</Label>
               <textarea
+                id="invoice-notes"
                 v-model="invoice.notes"
-                class="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                class="form-control min-h-[120px] resize-y py-3"
+                placeholder="Información opcional para este documento"
               ></textarea>
             </div>
-            <Button class="w-full" @click="saveInvoice">{{
-              isEditing ? 'Actualizar Cuenta de Cobro' : 'Guardar Cuenta de Cobro'
-            }}</Button>
+            <Button class="w-full" :disabled="isSaving" @click="saveInvoice">
+              {{ isSaving ? 'Guardando...' : isEditing ? 'Actualizar cuenta' : 'Guardar cuenta' }}
+            </Button>
           </CardContent>
         </Card>
       </div>

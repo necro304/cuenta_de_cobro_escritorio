@@ -18,8 +18,10 @@ export default defineConfig({
         entry: 'electron/main.ts',
         vite: {
           build: {
-            rollupOptions: {
-              external: ['better-sqlite3'],
+            rolldownOptions: {
+              // Módulos nativos/CJS resueltos desde node_modules en runtime
+              // (electron-builder los incluye al empaquetar)
+              external: ['better-sqlite3', 'electron-updater'],
             },
           },
         },

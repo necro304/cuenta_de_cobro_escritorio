@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Profile, Client, Invoice, InvoiceItem, BankAccount } from '@/types'
 import { numeroALetras } from '@/lib/numeroALetras'
+import { formatCurrency, formatDate } from '@/lib/format'
 
 defineProps<{
   profile: Partial<Profile>
@@ -8,16 +9,8 @@ defineProps<{
   invoice: Partial<Invoice>
   items: InvoiceItem[]
   bankAccount: BankAccount | null
+  signature: string | null
 }>()
-
-const formatDate = (dateStr: string | undefined) => {
-  if (!dateStr) return ''
-  const parts = dateStr.split('-')
-  if (parts.length === 3) {
-    return `${parts[2]}/${parts[1]}/${parts[0]}`
-  }
-  return dateStr
-}
 
 const getDocumentType = (docId: string | undefined) => {
   // Basic heuristic or default to NIT/CC
@@ -40,7 +33,8 @@ const getDocumentType = (docId: string | undefined) => {
       <h2>DEBE A:</h2>
       <div class="cliente-info">
         {{ profile.name?.toUpperCase() }}<br />
-        {{ (profile.document_type || getDocumentType(profile.document_id)).toUpperCase() }}: {{ profile.document_id }}<br />
+        {{ (profile.document_type || getDocumentType(profile.document_id)).toUpperCase() }}:
+        {{ profile.document_id }}<br />
         <template v-if="profile.rut">RUT: {{ profile.rut }}<br /></template>
       </div>
     </div>
@@ -48,8 +42,7 @@ const getDocumentType = (docId: string | undefined) => {
     <div class="suma">
       <h2>LA SUMA DE:</h2>
       <div class="monto">
-        {{ numeroALetras(invoice.total || 0) }} PESOS (COP
-        {{ (invoice.total || 0).toLocaleString('es-CO', { minimumFractionDigits: 0 }) }})
+        {{ numeroALetras(invoice.total || 0) }} PESOS (COP {{ formatCurrency(invoice.total) }})
       </div>
     </div>
 
@@ -81,11 +74,12 @@ const getDocumentType = (docId: string | undefined) => {
 
     <div class="firma-section">
       <p>Cordialmente,</p>
-      <!-- Si se agrega firma en base64 en profile en el futuro, se puede poner aquí -->
-      <br /><br /><br />
+      <img v-if="signature" :src="signature" alt="Firma" class="signature-image" />
+      <template v-else><br /><br /><br /></template>
       <p>{{ profile.name }}</p>
       <p>
-        <strong>{{ profile.document_type || getDocumentType(profile.document_id) }}:</strong> {{ profile.document_id }}
+        <strong>{{ profile.document_type || getDocumentType(profile.document_id) }}:</strong>
+        {{ profile.document_id }}
       </p>
       <p v-if="profile.rut"><strong>RUT:</strong> {{ profile.rut }}</p>
       <p v-if="profile.phone"><strong>Teléfono:</strong> {{ profile.phone }}</p>
@@ -106,7 +100,7 @@ const getDocumentType = (docId: string | undefined) => {
   font-size: 12px;
   line-height: 1.6;
   color: #000;
-  margin: 0;
+  margin: 0 auto;
   padding: 40px;
   background: white;
 }

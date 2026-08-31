@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Profile, Client, Invoice, InvoiceItem, BankAccount } from '@/types'
+import { formatCurrency } from '@/lib/format'
 
 defineProps<{
   profile: Partial<Profile>
@@ -7,6 +8,7 @@ defineProps<{
   invoice: Partial<Invoice>
   items: InvoiceItem[]
   bankAccount: BankAccount | null
+  signature: string | null
 }>()
 </script>
 
@@ -76,10 +78,10 @@ defineProps<{
           <td class="cantidad">{{ item.quantity }}</td>
           <td class="descripcion">{{ item.description }}</td>
           <td class="valor-unitario currency">
-            {{ (item.price || 0).toLocaleString('es-CO', { minimumFractionDigits: 2 }) }}
+            {{ formatCurrency(item.price, 2) }}
           </td>
           <td class="total currency">
-            {{ (item.quantity * item.price).toLocaleString('es-CO', { minimumFractionDigits: 2 }) }}
+            {{ formatCurrency(item.quantity * item.price, 2) }}
           </td>
         </tr>
 
@@ -94,9 +96,7 @@ defineProps<{
     </table>
 
     <div class="subtotal-section">
-      <div class="subtotal-line">
-        Subtotal: {{ (invoice.total || 0).toLocaleString('es-CO', { minimumFractionDigits: 2 }) }}
-      </div>
+      <div class="subtotal-line">Subtotal: {{ formatCurrency(invoice.total, 2) }}</div>
     </div>
 
     <div v-if="bankAccount" class="pago-section">
@@ -111,10 +111,7 @@ defineProps<{
     </div>
 
     <div class="total-line">
-      <strong
-        >TOTAL:
-        {{ (invoice.total || 0).toLocaleString('es-CO', { minimumFractionDigits: 2 }) }}</strong
-      >
+      <strong>TOTAL: {{ formatCurrency(invoice.total, 2) }}</strong>
     </div>
 
     <div class="concepto-section">
@@ -126,6 +123,7 @@ defineProps<{
     </div>
 
     <div class="firma-section">
+      <img v-if="signature" :src="signature" alt="Firma" class="firma-img" />
       <div class="firma-line"></div>
       <div class="firma-text">{{ profile.name }}</div>
       <div class="firma-text">{{ profile.document_type || 'ID' }}: {{ profile.document_id }}</div>
@@ -330,6 +328,13 @@ defineProps<{
   width: 300px;
   margin: 0 auto 10px auto;
   height: 5px;
+}
+
+.firma-img {
+  display: block;
+  max-width: 280px;
+  max-height: 80px;
+  margin: 0 auto -8px auto;
 }
 
 .firma-text {

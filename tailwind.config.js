@@ -23,8 +23,17 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        sans: ['"Bricolage Grotesque"', 'sans-serif'],
-        mono: ['"IBM Plex Mono"', 'monospace'],
+        sans: [
+          '"Outfit Variable"',
+          '"Avenir Next"',
+          'Avenir',
+          '"Segoe UI Variable"',
+          '"Segoe UI"',
+          'ui-sans-serif',
+          'system-ui',
+          'sans-serif',
+        ],
+        mono: ['"SFMono-Regular"', 'Cascadia Code', '"Roboto Mono"', 'ui-monospace', 'monospace'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -62,9 +71,9 @@ module.exports = {
         },
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        lg: 'calc(var(--radius) - 0.125rem)',
+        md: 'calc(var(--radius) - 0.25rem)',
+        sm: 'calc(var(--radius) - 0.375rem)',
       },
       keyframes: {
         'accordion-down': {

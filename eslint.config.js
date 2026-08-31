@@ -5,6 +5,12 @@ import vuePlugin from 'eslint-plugin-vue'
 import vueParser from 'vue-eslint-parser'
 import globals from 'globals'
 
+// eslint-plugin-vue 10: los configs legacy (vue3-essential) fueron removidos;
+// flat/essential es un array de flat configs — combinamos sus rules
+const vueEssentialRules = vuePlugin.configs['flat/essential']
+  .map((c) => c.rules ?? {})
+  .reduce((acc, rules) => ({ ...acc, ...rules }), {})
+
 export default [
   { ignores: ['dist/**', 'dist-electron/**', 'release/**', 'node_modules/**'] },
 
@@ -53,8 +59,9 @@ export default [
       globals: { ...globals.browser },
     },
     plugins: { vue: vuePlugin, '@typescript-eslint': ts },
+    processor: vuePlugin.processors['.vue'],
     rules: {
-      ...vuePlugin.configs['vue3-essential'].rules,
+      ...vueEssentialRules,
       'vue/multi-word-component-names': 'off',
       '@typescript-eslint/no-explicit-any': 'error',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
