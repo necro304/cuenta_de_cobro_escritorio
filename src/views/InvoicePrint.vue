@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Printer, ArrowLeft, Download } from '@lucide/vue'
+import { Printer, ArrowLeft, Download, FileWarning, RotateCcw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -14,14 +14,7 @@ import {
 import { useToast } from '@/components/ui/toast/use-toast'
 import { useProfile } from '@/composables/useProfile'
 import SignatureAskDialog from '@/components/SignatureAskDialog.vue'
-import type {
-  Client,
-  Invoice,
-  InvoiceItem,
-  InvoicePayment,
-  BankAccount,
-  TemplateId,
-} from '@/types'
+import type { Client, Invoice, InvoiceItem, InvoicePayment, BankAccount, TemplateId } from '@/types'
 
 import DefaultTemplate from '@/components/templates/DefaultTemplate.vue'
 import SimpleTemplate from '@/components/templates/SimpleTemplate.vue'
@@ -48,6 +41,9 @@ const includeSignature = ref(false)
 const userChoseSignature = ref(false)
 const isAskDialogOpen = ref(false)
 const pendingAction = ref<'print' | 'pdf' | null>(null)
+const isLoading = ref(true)
+const loadError = ref(false)
+const isExporting = ref(false)
 
 const signatureToRender = computed(() =>
   includeSignature.value ? (profile.value.signature ?? null) : null,
@@ -64,23 +60,28 @@ const signatureChoice = computed({
 const asTemplateId = (value: unknown): TemplateId => (value === 'simple' ? 'simple' : 'default')
 
 const loadData = async () => {
-  const profileData = await loadProfile()
-  if (profileData) {
-    if (isPdfMode) {
-      selectedTemplate.value = asTemplateId(route.query.template)
-      includeSignature.value = route.query.signature === '1'
-    } else {
-      selectedTemplate.value = asTemplateId(profileData.default_template)
-      // En modo 'ask' la vista previa se muestra sin firma hasta imprimir/descargar
-      includeSignature.value = profileData.signature_mode === 'auto' && !!profileData.signature
+  isLoading.value = true
+  loadError.value = false
+  try {
+    const profileData = await loadProfile()
+    if (profileData) {
+      if (isPdfMode) {
+        selectedTemplate.value = asTemplateId(route.query.template)
+        includeSignature.value = route.query.signature === '1'
+      } else {
+        selectedTemplate.value = asTemplateId(profileData.default_template)
+        includeSignature.value = profileData.signature_mode === 'auto' && !!profileData.signature
+      }
     }
-  }
 
-  const invoiceData = await window.electronAPI.dbGet<Invoice>(
-    'SELECT * FROM invoices WHERE id = ?',
-    [invoiceId],
-  )
-  if (invoiceData) {
+    const invoiceData = await window.electronAPI.dbGet<Invoice>(
+      'SELECT * FROM invoices WHERE id = ?',
+      [invoiceId],
+    )
+    if (!invoiceData) {
+      loadError.value = true
+      return
+    }
     invoice.value = invoiceData
 
     if (invoiceData.bank_account_id) {
@@ -106,12 +107,21 @@ const loadData = async () => {
       'SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY date ASC',
       [invoiceId],
     )
-  }
-
-  if (isPdfMode) {
-    await nextTick()
-    // Margen extra para que la imagen de la firma termine de pintarse
-    setTimeout(() => window.electronAPI.notifyPrintReady(), 100)
+  } catch {
+    loadError.value = true
+    if (!isPdfMode) {
+      toast({
+        title: 'No se pudo abrir la cuenta',
+        description: 'Intenta cargar la vista previa nuevamente.',
+        variant: 'destructive',
+      })
+    }
+  } finally {
+    isLoading.value = false
+    if (isPdfMode) {
+      await nextTick()
+      setTimeout(() => window.electronAPI.notifyPrintReady(), 100)
+    }
   }
 }
 
@@ -128,16 +138,21 @@ const runAction = async (action: 'print' | 'pdf') => {
     return
   }
 
-  const result = await window.electronAPI.exportPdf({
-    invoiceId: Number(invoiceId),
-    invoiceNumber: invoice.value.number ?? 0,
-    template: selectedTemplate.value,
-    includeSignature: includeSignature.value,
-  })
-  if (result.success) {
-    toast({ title: 'PDF descargado', description: result.message })
-  } else if (result.message !== 'Operación cancelada.') {
-    toast({ title: 'Error', description: result.message, variant: 'destructive' })
+  isExporting.value = true
+  try {
+    const result = await window.electronAPI.exportPdf({
+      invoiceId: Number(invoiceId),
+      invoiceNumber: invoice.value.number ?? 0,
+      template: selectedTemplate.value,
+      includeSignature: includeSignature.value,
+    })
+    if (result.success) {
+      toast({ title: 'PDF descargado', description: result.message })
+    } else if (result.message !== 'Operación cancelada.') {
+      toast({ title: 'Error', description: result.message, variant: 'destructive' })
+    }
+  } finally {
+    isExporting.value = false
   }
 }
 
@@ -176,22 +191,21 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="print-container min-h-screen bg-white">
-    <!-- Controls (hidden when printing or rendering for PDF) -->
+  <div class="print-container h-dvh min-h-[100dvh] overflow-y-auto bg-secondary/60">
     <div
       v-if="!isPdfMode"
-      class="print-controls p-4 bg-muted/50 border-b flex justify-between items-center no-print"
+      class="print-controls sticky top-0 z-10 flex flex-col gap-3 border-b bg-card/95 px-4 py-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between no-print"
     >
-      <Button variant="outline" @click="router.back()" class="gap-2">
+      <Button variant="ghost" @click="router.push('/invoices')" class="self-start gap-2">
         <ArrowLeft class="h-4 w-4" />
-        Volver
+        Cuentas
       </Button>
 
-      <div class="flex items-center gap-4">
-        <div class="flex items-center gap-2">
-          <span class="text-sm font-medium">Plantilla:</span>
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="flex items-center gap-2">
+          <span class="sr-only">Plantilla</span>
           <Select v-model="selectedTemplate">
-            <SelectTrigger class="w-[180px] bg-white">
+            <SelectTrigger class="w-[160px] bg-background">
               <SelectValue placeholder="Seleccionar plantilla" />
             </SelectTrigger>
             <SelectContent>
@@ -201,12 +215,12 @@ onUnmounted(() => {
               </SelectGroup>
             </SelectContent>
           </Select>
-        </div>
+        </label>
 
-        <div v-if="profile.signature" class="flex items-center gap-2">
-          <span class="text-sm font-medium">Firma:</span>
+        <label v-if="profile.signature" class="flex items-center gap-2">
+          <span class="sr-only">Firma</span>
           <Select v-model="signatureChoice">
-            <SelectTrigger class="w-[140px] bg-white">
+            <SelectTrigger class="w-[130px] bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -216,39 +230,65 @@ onUnmounted(() => {
               </SelectGroup>
             </SelectContent>
           </Select>
-        </div>
+        </label>
 
-        <Button variant="outline" @click="requestAction('pdf')" class="gap-2">
+        <Button
+          variant="outline"
+          :disabled="isLoading || loadError || isExporting"
+          @click="requestAction('pdf')"
+          class="gap-2"
+        >
           <Download class="h-4 w-4" />
-          Descargar PDF
+          {{ isExporting ? 'Generando...' : 'Descargar PDF' }}
         </Button>
 
-        <Button @click="requestAction('print')" class="gap-2">
+        <Button :disabled="isLoading || loadError" @click="requestAction('print')" class="gap-2">
           <Printer class="h-4 w-4" />
           Imprimir
         </Button>
       </div>
     </div>
 
-    <!-- Invoice Content -->
-    <DefaultTemplate
-      v-if="selectedTemplate === 'default'"
-      :profile="profile"
-      :client="client"
-      :invoice="invoice"
-      :items="items"
-      :bankAccount="bankAccount"
-      :signature="signatureToRender"
-    />
-    <SimpleTemplate
-      v-if="selectedTemplate === 'simple'"
-      :profile="profile"
-      :client="client"
-      :invoice="invoice"
-      :items="items"
-      :bankAccount="bankAccount"
-      :signature="signatureToRender"
-    />
+    <main
+      class="document-stage mx-auto min-h-[calc(100dvh-69px)] max-w-[1100px] p-4 sm:p-8"
+      :class="isPdfMode ? '!max-w-none !p-0' : ''"
+    >
+      <div
+        v-if="isLoading"
+        class="mx-auto h-[900px] max-w-[816px] animate-pulse bg-white shadow-sm"
+      ></div>
+      <div
+        v-else-if="loadError && !isPdfMode"
+        class="mx-auto mt-16 flex max-w-lg flex-col items-center rounded-xl border bg-card p-10 text-center shadow-sm"
+      >
+        <div class="empty-state-icon"><FileWarning /></div>
+        <h1 class="section-title">No encontramos esta cuenta</h1>
+        <p class="mt-2 text-sm text-muted-foreground">
+          El registro no existe o no se pudo consultar.
+        </p>
+        <Button class="mt-5" variant="outline" @click="loadData"><RotateCcw /> Reintentar</Button>
+      </div>
+      <template v-else-if="!loadError">
+        <DefaultTemplate
+          v-if="selectedTemplate === 'default'"
+          :profile="profile"
+          :client="client"
+          :invoice="invoice"
+          :items="items"
+          :bankAccount="bankAccount"
+          :signature="signatureToRender"
+        />
+        <SimpleTemplate
+          v-if="selectedTemplate === 'simple'"
+          :profile="profile"
+          :client="client"
+          :invoice="invoice"
+          :items="items"
+          :bankAccount="bankAccount"
+          :signature="signatureToRender"
+        />
+      </template>
+    </main>
 
     <SignatureAskDialog v-model:open="isAskDialogOpen" @choice="onSignatureChoice" />
   </div>
@@ -261,6 +301,10 @@ onUnmounted(() => {
   }
   .print-container {
     background: transparent !important;
+    min-height: auto !important;
+  }
+  .document-stage {
+    padding: 0 !important;
     min-height: auto !important;
   }
   @page {

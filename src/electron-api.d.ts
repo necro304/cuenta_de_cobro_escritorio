@@ -1,6 +1,9 @@
+import type { CuentaDeCobroModule } from '@/types/cuentaDeCobro'
+
 export type DbParam = string | number | null | boolean
 
 export interface ElectronAPI {
+  cuentaDeCobro: CuentaDeCobroModule
   dbQuery: <T = unknown>(sql: string, params?: DbParam[]) => Promise<T[]>
   dbGet: <T = unknown>(sql: string, params?: DbParam[]) => Promise<T | undefined>
   dbRun: (

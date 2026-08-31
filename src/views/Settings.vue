@@ -1,17 +1,29 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
+import { ref, type Component } from 'vue'
 import { useRouter } from 'vue-router'
-import { Sun, Moon, Monitor } from '@lucide/vue'
+import {
+  Sun,
+  Moon,
+  Monitor,
+  RefreshCw,
+  DatabaseBackup,
+  DatabaseZap,
+  AlertTriangle,
+} from '@lucide/vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast/use-toast'
 import { getErrorMessage } from '@/lib/utils'
 import { useTheme, type ThemeMode } from '@/composables/useTheme'
+import PageHeader from '@/components/PageHeader.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const router = useRouter()
 const { toast } = useToast()
 
 const { theme, setTheme } = useTheme()
+const activeOperation = ref<'updates' | 'backup' | 'restore' | 'reset' | null>(null)
+const pendingConfirmation = ref<'restore' | 'reset' | null>(null)
 
 const themeOptions: { value: ThemeMode; label: string; icon: Component }[] = [
   { value: 'light', label: 'Claro', icon: Sun },
@@ -22,6 +34,7 @@ const themeOptions: { value: ThemeMode; label: string; icon: Component }[] = [
 import { version as appVersion } from '../../package.json'
 
 const handleCheckUpdates = async () => {
+  activeOperation.value = 'updates'
   try {
     const result = await window.electronAPI.checkForUpdates()
     // Los eventos de autoUpdater en el main process manejan los diálogos si hay
@@ -35,10 +48,13 @@ const handleCheckUpdates = async () => {
       description: 'No se pudo buscar actualizaciones.',
       variant: 'destructive',
     })
+  } finally {
+    activeOperation.value = null
   }
 }
 
 const handleBackup = async () => {
+  activeOperation.value = 'backup'
   try {
     const result = await window.electronAPI.dbBackup()
     if (result.success) {
@@ -52,16 +68,17 @@ const handleBackup = async () => {
       description: getErrorMessage(error),
       variant: 'destructive',
     })
+  } finally {
+    activeOperation.value = null
   }
 }
 
-const handleRestore = async () => {
-  if (
-    !confirm(
-      'SYS.CONFIRM: ¿Restaurar base de datos? La aplicación se reiniciará para aplicar los cambios.',
-    )
-  )
-    return
+const handleRestore = () => {
+  pendingConfirmation.value = 'restore'
+}
+
+const restoreDatabase = async () => {
+  activeOperation.value = 'restore'
   try {
     const result = await window.electronAPI.dbRestore()
     if (!result.success && result.message !== 'Operación cancelada.') {
@@ -73,12 +90,17 @@ const handleRestore = async () => {
       description: getErrorMessage(error),
       variant: 'destructive',
     })
+  } finally {
+    activeOperation.value = null
   }
 }
 
-const resetDatabase = async () => {
-  if (!confirm('¿Estás seguro? Esta acción eliminará TODOS los datos y no se puede deshacer.'))
-    return
+const resetDatabase = () => {
+  pendingConfirmation.value = 'reset'
+}
+
+const clearDatabase = async () => {
+  activeOperation.value = 'reset'
   try {
     await window.electronAPI.dbRun('DELETE FROM invoice_items')
     await window.electronAPI.dbRun('DELETE FROM invoices')
@@ -94,105 +116,172 @@ const resetDatabase = async () => {
       description: 'No se pudo completar la operación',
       variant: 'destructive',
     })
+  } finally {
+    activeOperation.value = null
   }
+}
+
+const confirmOperation = async () => {
+  const operation = pendingConfirmation.value
+  if (!operation) return
+
+  if (operation === 'restore') await restoreDatabase()
+  else await clearDatabase()
+
+  pendingConfirmation.value = null
 }
 </script>
 
 <template>
-  <div class="space-y-6">
-    <h2 class="text-3xl font-bold tracking-tight">Configuración</h2>
+  <div class="app-page">
+    <PageHeader
+      title="Configuración"
+      description="Ajusta la apariencia, las actualizaciones y la protección de tus datos locales."
+    />
 
-    <Card class="max-w-2xl">
-      <CardHeader>
-        <CardTitle>Acerca de</CardTitle>
-        <CardDescription>Información de la aplicación.</CardDescription>
-      </CardHeader>
-      <CardContent class="space-y-4">
-        <div
-          class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg bg-card text-card-foreground gap-4"
-        >
-          <div class="space-y-1">
-            <h3 class="font-semibold text-lg flex items-center gap-2">
-              Cuenta de Cobro Electrónica
-            </h3>
-            <p class="text-sm text-muted-foreground">
-              Aplicación para generación de cuentas de cobro.
-            </p>
-          </div>
-          <div class="flex flex-col items-start sm:items-end space-y-2">
-            <div
-              class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-sm font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary text-primary-foreground shadow-sm"
-            >
-              v{{ appVersion }}
+    <div class="grid gap-6 lg:grid-cols-12">
+      <Card class="lg:col-span-6">
+        <CardHeader>
+          <CardTitle>Acerca de</CardTitle>
+          <CardDescription>Información de esta instalación.</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <div
+            class="flex flex-col items-start justify-between gap-4 rounded-lg bg-secondary/60 p-4 sm:flex-row sm:items-center"
+          >
+            <div class="space-y-1">
+              <h3 class="font-semibold text-lg flex items-center gap-2">
+                Cuenta de Cobro Electrónica
+              </h3>
+              <p class="text-sm text-muted-foreground">
+                Tus cuentas de cobro y respaldos permanecen en este equipo.
+              </p>
             </div>
-            <Button variant="outline" size="sm" @click="handleCheckUpdates">
-              Buscar actualizaciones
-            </Button>
+            <div class="flex flex-col items-start sm:items-end space-y-2">
+              <div class="font-mono text-xs font-medium text-muted-foreground">
+                v{{ appVersion }}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                :disabled="activeOperation !== null"
+                @click="handleCheckUpdates"
+              >
+                <RefreshCw :class="activeOperation === 'updates' ? 'animate-spin' : ''" />
+                {{ activeOperation === 'updates' ? 'Buscando...' : 'Buscar actualizaciones' }}
+              </Button>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
 
-    <Card class="max-w-2xl">
-      <CardHeader>
-        <CardTitle>Apariencia</CardTitle>
-        <CardDescription>Personalice el tema visual de la aplicación.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div class="flex flex-wrap gap-2">
-          <Button
-            v-for="option in themeOptions"
-            :key="option.value"
-            :variant="theme === option.value ? 'default' : 'outline'"
-            class="gap-2"
-            @click="setTheme(option.value)"
-          >
-            <component :is="option.icon" class="w-4 h-4" />
-            {{ option.label }}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-
-    <Card class="max-w-2xl">
-      <CardHeader>
-        <CardTitle>Respaldo y Restauración</CardTitle>
-        <CardDescription>Gestione copias de seguridad de todos sus datos.</CardDescription>
-      </CardHeader>
-      <CardContent class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Button
-            variant="outline"
-            @click="handleBackup"
-            class="w-full h-full min-h-[100px] py-4 flex flex-col items-center justify-center gap-2 whitespace-normal text-center"
-          >
-            <span class="font-bold">Respaldar Base de Datos</span>
-            <span class="text-xs text-muted-foreground font-normal"
-              >Guardar archivo de la base de datos local (.sqlite)</span
+      <Card class="lg:col-span-6">
+        <CardHeader>
+          <CardTitle>Apariencia</CardTitle>
+          <CardDescription>Elige cómo quieres ver la aplicación.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div class="grid grid-cols-3 gap-2 rounded-lg bg-secondary/60 p-2">
+            <button
+              v-for="option in themeOptions"
+              :key="option.value"
+              type="button"
+              class="flex min-h-20 flex-col items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold transition-[background-color,color,box-shadow,transform] active:scale-[0.98]"
+              :class="
+                theme === option.value
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              "
+              :aria-pressed="theme === option.value"
+              @click="setTheme(option.value)"
             >
-          </Button>
-          <Button
-            variant="outline"
-            @click="handleRestore"
-            class="w-full h-full min-h-[100px] py-4 flex flex-col items-center justify-center gap-2 whitespace-normal text-center"
-          >
-            <span class="font-bold">Restaurar Base de Datos</span>
-            <span class="text-xs text-muted-foreground font-normal"
-              >Cargar un archivo .sqlite previamente respaldado</span
-            >
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+              <component :is="option.icon" class="w-4 h-4" />
+              {{ option.label }}
+            </button>
+          </div>
+        </CardContent>
+      </Card>
 
-    <Card class="max-w-2xl border-destructive">
-      <CardHeader>
-        <CardTitle class="text-destructive">Zona de peligro</CardTitle>
-        <CardDescription>Acciones irreversibles sobre los datos de la aplicación.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Button variant="destructive" @click="resetDatabase"> Eliminar todos los datos </Button>
-      </CardContent>
-    </Card>
+      <Card class="lg:col-span-12">
+        <CardHeader>
+          <CardTitle>Respaldo y restauración</CardTitle>
+          <CardDescription>Guarda una copia o recupera una base de datos anterior.</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              type="button"
+              :disabled="activeOperation !== null"
+              @click="handleBackup"
+              class="group flex min-h-32 w-full items-start gap-4 rounded-lg bg-secondary/55 p-5 text-left transition-[background-color,transform] hover:bg-accent/55 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
+            >
+              <span
+                class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground"
+                ><DatabaseBackup class="size-5"
+              /></span>
+              <span
+                ><span class="block font-semibold">Crear respaldo</span
+                ><span class="mt-1 block text-sm font-normal text-muted-foreground"
+                  >Guarda una copia local en formato .sqlite.</span
+                ></span
+              >
+            </button>
+            <button
+              type="button"
+              :disabled="activeOperation !== null"
+              @click="handleRestore"
+              class="group flex min-h-32 w-full items-start gap-4 rounded-lg bg-secondary/55 p-5 text-left transition-[background-color,transform] hover:bg-accent/55 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
+            >
+              <span
+                class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground"
+                ><DatabaseZap class="size-5"
+              /></span>
+              <span
+                ><span class="block font-semibold">Restaurar respaldo</span
+                ><span class="mt-1 block text-sm font-normal text-muted-foreground"
+                  >Carga un archivo .sqlite y reinicia la aplicación.</span
+                ></span
+              >
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card class="border-destructive/35 lg:col-span-12">
+        <CardHeader>
+          <div class="flex items-center gap-3">
+            <div
+              class="flex size-9 items-center justify-center rounded-lg bg-destructive/10 text-destructive"
+            >
+              <AlertTriangle class="size-5" />
+            </div>
+            <CardTitle class="text-destructive">Zona de peligro</CardTitle>
+          </div>
+          <CardDescription
+            >Acciones irreversibles sobre los datos de la aplicación.</CardDescription
+          >
+        </CardHeader>
+        <CardContent>
+          <Button variant="destructive" :disabled="activeOperation !== null" @click="resetDatabase">
+            {{ activeOperation === 'reset' ? 'Eliminando...' : 'Eliminar todos los datos' }}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+
+    <ConfirmDialog
+      :open="pendingConfirmation !== null"
+      :title="pendingConfirmation === 'restore' ? 'Restaurar respaldo' : 'Eliminar todos los datos'"
+      :description="
+        pendingConfirmation === 'restore'
+          ? 'Seleccionarás una base de datos respaldada y la aplicación se reiniciará para aplicar los cambios.'
+          : 'Se eliminarán permanentemente clientes, cuentas de cobro, conceptos y abonos. Esta acción no se puede deshacer.'
+      "
+      :confirm-label="pendingConfirmation === 'restore' ? 'Elegir respaldo' : 'Eliminar datos'"
+      :busy="activeOperation !== null"
+      :destructive="pendingConfirmation === 'reset'"
+      @update:open="(open) => !open && activeOperation === null && (pendingConfirmation = null)"
+      @confirm="confirmOperation"
+    />
   </div>
 </template>

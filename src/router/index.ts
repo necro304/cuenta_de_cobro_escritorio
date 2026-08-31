@@ -1,30 +1,24 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import MainLayout from '@/layouts/MainLayout.vue'
-import Dashboard from '@/views/Dashboard.vue'
-import Invoices from '@/views/Invoices.vue'
-import InvoiceEditor from '@/views/InvoiceEditor.vue'
-import InvoicePrint from '@/views/InvoicePrint.vue'
-import Clients from '@/views/Clients.vue'
-import Profile from '@/views/Profile.vue'
-import Settings from '@/views/Settings.vue'
 
 const routes = [
   {
     path: '/',
     component: MainLayout,
     children: [
-      { path: '', component: Dashboard },
-      { path: 'invoices', component: Invoices },
-      { path: 'invoices/new', component: InvoiceEditor },
-      { path: 'invoices/edit/:id', component: InvoiceEditor },
-      { path: 'clients', component: Clients },
-      { path: 'profile', component: Profile },
-      { path: 'settings', component: Settings },
+      { path: '', component: () => import('@/views/Dashboard.vue') },
+      { path: 'invoices', component: () => import('@/views/Invoices.vue') },
+      { path: 'invoices/new', component: () => import('@/views/InvoiceEditor.vue') },
+      { path: 'invoices/edit/:id', component: () => import('@/views/InvoiceEditor.vue') },
+      { path: 'clients', component: () => import('@/views/Clients.vue') },
+      { path: 'profile', component: () => import('@/views/Profile.vue') },
+      { path: 'settings', component: () => import('@/views/Settings.vue') },
+      { path: ':pathMatch(.*)*', component: () => import('@/views/NotFound.vue') },
     ],
   },
   {
     path: '/print/:id',
-    component: InvoicePrint,
+    component: () => import('@/views/InvoicePrint.vue'),
   },
 ]
 

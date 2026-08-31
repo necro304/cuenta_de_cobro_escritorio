@@ -32,7 +32,7 @@ const initPad = () => {
   canvas.getContext('2d')?.scale(ratio, ratio)
 
   pad = new SignaturePad(canvas, {
-    penColor: '#1e3a8a',
+    penColor: '#245f46',
     minWidth: 1,
     maxWidth: 2.5,
   })

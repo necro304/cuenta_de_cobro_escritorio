@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
 import db, { initDb } from './database'
+import { cuentaDeCobroModule } from './cuentaDeCobro'
+import type { CuentaDeCobroTarget, SaveCuentaDeCobroCommand } from '../src/types/cuentaDeCobro'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -26,6 +28,8 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1300,
     height: 800,
+    minWidth: 640,
+    minHeight: 600,
     icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
@@ -70,6 +74,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('db-run', (_event, sql: string, params?: unknown[]) => {
     return db.prepare(sql).run(params ?? [])
+  })
+
+  ipcMain.handle('cuenta-de-cobro:open', (_event, target: CuentaDeCobroTarget) => {
+    return cuentaDeCobroModule.open(target)
+  })
+
+  ipcMain.handle('cuenta-de-cobro:save', (_event, command: SaveCuentaDeCobroCommand) => {
+    return cuentaDeCobroModule.save(command)
   })
 
   ipcMain.handle('db-backup', async () => {
