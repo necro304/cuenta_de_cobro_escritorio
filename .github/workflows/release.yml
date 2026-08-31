@@ -27,7 +27,10 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci --ignore-scripts
+
+      - name: Rebuild native deps for Electron
+        run: npx electron-builder install-app-deps
 
       - name: Build and Publish
         run: npm run build -- --publish always
