@@ -21,5 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     template: string
     includeSignature: boolean
   }) => ipcRenderer.invoke('export-pdf', opts),
+  exportClientReportPdf: (opts: { clientId: number; clientName: string }) =>
+    ipcRenderer.invoke('export-client-report-pdf', opts),
   notifyPrintReady: () => ipcRenderer.send('print-ready'),
 })

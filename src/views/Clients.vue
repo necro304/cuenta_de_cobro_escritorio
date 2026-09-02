@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import {
+  Eye,
   FileText,
   Mail,
   MapPin,
@@ -13,6 +14,7 @@ import {
   UsersRound,
   X,
 } from '@lucide/vue'
+import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,6 +38,7 @@ interface ClientMetric {
 }
 
 const { toast } = useToast()
+const router = useRouter()
 const { clients, loadClients: fetchClients } = useClients()
 const isLoading = ref(true)
 const loadError = ref(false)
@@ -261,14 +264,18 @@ onMounted(loadClients)
       class="client-overview overflow-hidden rounded-[1.5rem] border border-primary/15 bg-card shadow-[0_24px_70px_hsl(var(--primary)/0.08)]"
     >
       <div class="grid xl:grid-cols-12">
-        <div class="relative isolate overflow-hidden bg-primary p-6 text-primary-foreground sm:p-8 xl:col-span-5">
+        <div
+          class="relative isolate overflow-hidden bg-primary p-6 text-primary-foreground sm:p-8 xl:col-span-5"
+        >
           <div class="directory-orbit" aria-hidden="true"></div>
           <div class="relative z-10 flex min-h-48 flex-col justify-between gap-10">
             <div class="flex items-center justify-between gap-4">
               <p class="flex items-center gap-2 text-sm font-medium text-primary-foreground/70">
                 <UsersRound class="size-4" :stroke-width="1.8" /> Base comercial
               </p>
-              <span class="rounded-md border border-primary-foreground/15 bg-primary-foreground/10 px-2 py-1 font-mono text-[10px] font-semibold tracking-[0.12em]">
+              <span
+                class="rounded-md border border-primary-foreground/15 bg-primary-foreground/10 px-2 py-1 font-mono text-[10px] font-semibold tracking-[0.12em]"
+              >
                 LOCAL
               </span>
             </div>
@@ -290,7 +297,9 @@ onMounted(loadClients)
         </div>
 
         <div class="grid sm:grid-cols-3 xl:col-span-7">
-          <div class="flex min-h-36 flex-col justify-between border-b p-5 sm:border-b-0 sm:border-r sm:p-6">
+          <div
+            class="flex min-h-36 flex-col justify-between border-b p-5 sm:border-b-0 sm:border-r sm:p-6"
+          >
             <div class="flex items-center justify-between gap-3">
               <p class="text-sm font-medium text-muted-foreground">Con actividad</p>
               <FileText class="size-5 text-primary" :stroke-width="1.8" />
@@ -300,7 +309,9 @@ onMounted(loadClients)
               <p class="mt-2 text-xs text-muted-foreground">con cuentas emitidas</p>
             </div>
           </div>
-          <div class="flex min-h-36 flex-col justify-between border-b p-5 sm:border-b-0 sm:border-r sm:p-6">
+          <div
+            class="flex min-h-36 flex-col justify-between border-b p-5 sm:border-b-0 sm:border-r sm:p-6"
+          >
             <div class="flex items-center justify-between gap-3">
               <p class="text-sm font-medium text-muted-foreground">Cobertura</p>
               <MapPin class="size-5 text-primary" :stroke-width="1.8" />
@@ -316,7 +327,9 @@ onMounted(loadClients)
               <UsersRound class="size-5 text-[hsl(var(--success))]" :stroke-width="1.8" />
             </div>
             <div>
-              <p class="metric-value text-3xl font-semibold">{{ clientSummary.completeProfiles }}</p>
+              <p class="metric-value text-3xl font-semibold">
+                {{ clientSummary.completeProfiles }}
+              </p>
               <p class="mt-2 text-xs text-muted-foreground">listos para contactar</p>
             </div>
           </div>
@@ -328,7 +341,9 @@ onMounted(loadClients)
       <div class="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
         <label class="relative min-w-0 flex-1">
           <span class="sr-only">Buscar clientes</span>
-          <Search class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search
+            class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          />
           <input
             v-model="searchQuery"
             type="search"
@@ -345,8 +360,13 @@ onMounted(loadClients)
             <X class="size-4" />
           </button>
         </label>
-        <div class="flex items-center justify-between gap-4 px-1 text-xs text-muted-foreground sm:justify-end sm:px-3">
-          <p><span class="font-semibold text-foreground">{{ filteredClients.length }}</span> resultados</p>
+        <div
+          class="flex items-center justify-between gap-4 px-1 text-xs text-muted-foreground sm:justify-end sm:px-3"
+        >
+          <p>
+            <span class="font-semibold text-foreground">{{ filteredClients.length }}</span>
+            resultados
+          </p>
           <p v-if="searchQuery" class="font-mono">de {{ clients.length }}</p>
         </div>
       </div>
@@ -439,111 +459,151 @@ onMounted(loadClients)
         <div class="flex items-center justify-between border-b px-5 py-4">
           <div>
             <h2 class="section-title">Relaciones comerciales</h2>
-            <p class="mt-1 text-xs text-muted-foreground">Contacto, ubicación y actividad histórica por cliente.</p>
+            <p class="mt-1 text-xs text-muted-foreground">
+              Contacto, ubicación y actividad histórica por cliente.
+            </p>
           </div>
-          <p class="font-mono text-[10px] font-semibold tracking-[0.12em] text-muted-foreground">DIRECTORIO · COP</p>
+          <p class="font-mono text-[10px] font-semibold tracking-[0.12em] text-muted-foreground">
+            DIRECTORIO · COP
+          </p>
         </div>
         <div class="overflow-x-auto">
-        <table class="data-table min-w-[900px]">
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>Contacto</th>
-              <th>Ubicación</th>
-              <th class="w-56">Actividad</th>
-              <th class="w-28 text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-if="isLoading">
-              <tr v-for="row in 5" :key="row" aria-hidden="true">
-                <td v-for="column in 5" :key="column">
-                  <div class="h-5 animate-pulse rounded bg-secondary"></div>
-                </td>
+          <table class="data-table min-w-[900px]">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Contacto</th>
+                <th>Ubicación</th>
+                <th class="w-56">Actividad</th>
+                <th class="w-36 text-right">Acciones</th>
               </tr>
-            </template>
-            <tr v-for="client in isLoading ? [] : filteredClients" :key="client.id" class="group">
-              <td>
-                <div class="flex items-center gap-3">
-                  <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent font-mono text-xs font-semibold text-primary">
-                    {{ getInitials(client.name) }}
+            </thead>
+            <tbody>
+              <template v-if="isLoading">
+                <tr v-for="row in 5" :key="row" aria-hidden="true">
+                  <td v-for="column in 5" :key="column">
+                    <div class="h-5 animate-pulse rounded bg-secondary"></div>
+                  </td>
+                </tr>
+              </template>
+              <tr v-for="client in isLoading ? [] : filteredClients" :key="client.id" class="group">
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent font-mono text-xs font-semibold text-primary"
+                    >
+                      {{ getInitials(client.name) }}
+                    </div>
+                    <div class="min-w-0">
+                      <p class="max-w-72 truncate font-semibold">{{ client.name }}</p>
+                      <p class="mt-1 font-mono text-[11px] text-muted-foreground">
+                        {{ client.document_id || 'Documento sin registrar' }}
+                      </p>
+                    </div>
                   </div>
-                  <div class="min-w-0">
-                    <p class="max-w-72 truncate font-semibold">{{ client.name }}</p>
-                    <p class="mt-1 font-mono text-[11px] text-muted-foreground">
-                      {{ client.document_id || 'Documento sin registrar' }}
+                </td>
+                <td>
+                  <p class="flex items-center gap-2 text-sm">
+                    <Mail class="size-3.5 text-muted-foreground" />
+                    <span class="max-w-52 truncate">{{
+                      client.email || 'Correo sin registrar'
+                    }}</span>
+                  </p>
+                  <p class="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Phone class="size-3.5" /> {{ client.phone || 'Teléfono sin registrar' }}
+                  </p>
+                </td>
+                <td>
+                  <p class="flex items-center gap-2 font-medium">
+                    <MapPin class="size-4 text-primary" /> {{ client.city || 'Sin ciudad' }}
+                  </p>
+                  <p class="mt-1 max-w-56 truncate text-xs text-muted-foreground">
+                    {{ client.address || 'Dirección sin registrar' }}
+                  </p>
+                </td>
+                <td>
+                  <div v-if="getClientMetric(client.id).invoice_count > 0">
+                    <p class="metric-value font-semibold">
+                      ${{ formatCurrency(getClientMetric(client.id).total_issued) }}
+                    </p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      {{ getClientMetric(client.id).invoice_count }}
+                      {{
+                        getClientMetric(client.id).invoice_count === 1
+                          ? 'cuenta emitida'
+                          : 'cuentas emitidas'
+                      }}
                     </p>
                   </div>
-                </div>
-              </td>
-              <td>
-                <p class="flex items-center gap-2 text-sm">
-                  <Mail class="size-3.5 text-muted-foreground" />
-                  <span class="max-w-52 truncate">{{ client.email || 'Correo sin registrar' }}</span>
-                </p>
-                <p class="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Phone class="size-3.5" /> {{ client.phone || 'Teléfono sin registrar' }}
-                </p>
-              </td>
-              <td>
-                <p class="flex items-center gap-2 font-medium">
-                  <MapPin class="size-4 text-primary" /> {{ client.city || 'Sin ciudad' }}
-                </p>
-                <p class="mt-1 max-w-56 truncate text-xs text-muted-foreground">
-                  {{ client.address || 'Dirección sin registrar' }}
-                </p>
-              </td>
-              <td>
-                <div v-if="getClientMetric(client.id).invoice_count > 0">
-                  <p class="metric-value font-semibold">${{ formatCurrency(getClientMetric(client.id).total_issued) }}</p>
-                  <p class="mt-1 text-xs text-muted-foreground">
-                    {{ getClientMetric(client.id).invoice_count }}
-                    {{ getClientMetric(client.id).invoice_count === 1 ? 'cuenta emitida' : 'cuentas emitidas' }}
-                  </p>
-                </div>
-                <div v-else class="inline-flex items-center gap-2 rounded-md bg-secondary px-2.5 py-1.5 text-xs text-muted-foreground">
-                  <span class="size-1.5 rounded-full bg-muted-foreground/50"></span>
-                  Sin actividad
-                </div>
-              </td>
-              <td>
-                <div class="flex justify-end gap-1.5">
-                  <button
-                    class="icon-button border-primary/20 bg-accent/55 text-primary hover:bg-accent"
-                    type="button"
-                    :aria-label="`Editar cliente ${client.name}`"
-                    title="Editar"
-                    @click="editClient(client)"
+                  <div
+                    v-else
+                    class="inline-flex items-center gap-2 rounded-md bg-secondary px-2.5 py-1.5 text-xs text-muted-foreground"
                   >
-                    <Pencil />
-                  </button>
-                  <button
-                    class="icon-button hover:bg-destructive/10 hover:text-destructive"
-                    type="button"
-                    :aria-label="`Eliminar cliente ${client.name}`"
-                    title="Eliminar"
-                    @click="deleteClient(client)"
-                  >
-                    <Trash2 />
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="!isLoading && filteredClients.length === 0">
-              <td colspan="5" class="p-0">
-                <div class="empty-state">
-                  <div class="empty-state-icon"><UsersRound class="size-5" /></div>
-                  <h2 class="section-title">{{ searchQuery ? 'No hay coincidencias' : 'Aún no tienes clientes' }}</h2>
-                  <p class="mt-2 max-w-md text-sm text-muted-foreground">
-                    {{ searchQuery ? 'Prueba con otro nombre, documento o ciudad.' : 'Registra un cliente para poder crear su primera cuenta de cobro.' }}
-                  </p>
-                  <Button v-if="searchQuery" class="mt-5" variant="outline" @click="searchQuery = ''">Limpiar búsqueda</Button>
-                  <Button v-else class="mt-5" @click="openNewDialog"><Plus /> Nuevo cliente</Button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                    <span class="size-1.5 rounded-full bg-muted-foreground/50"></span>
+                    Sin actividad
+                  </div>
+                </td>
+                <td>
+                  <div class="flex justify-end gap-1.5">
+                    <button
+                      class="icon-button border-primary/20 bg-accent/55 text-primary hover:bg-accent"
+                      type="button"
+                      :aria-label="`Ver detalle de ${client.name}`"
+                      title="Ver detalle"
+                      @click="router.push(`/clients/${client.id}`)"
+                    >
+                      <Eye />
+                    </button>
+                    <button
+                      class="icon-button"
+                      type="button"
+                      :aria-label="`Editar cliente ${client.name}`"
+                      title="Editar"
+                      @click="editClient(client)"
+                    >
+                      <Pencil />
+                    </button>
+                    <button
+                      class="icon-button hover:bg-destructive/10 hover:text-destructive"
+                      type="button"
+                      :aria-label="`Eliminar cliente ${client.name}`"
+                      title="Eliminar"
+                      @click="deleteClient(client)"
+                    >
+                      <Trash2 />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!isLoading && filteredClients.length === 0">
+                <td colspan="5" class="p-0">
+                  <div class="empty-state">
+                    <div class="empty-state-icon"><UsersRound class="size-5" /></div>
+                    <h2 class="section-title">
+                      {{ searchQuery ? 'No hay coincidencias' : 'Aún no tienes clientes' }}
+                    </h2>
+                    <p class="mt-2 max-w-md text-sm text-muted-foreground">
+                      {{
+                        searchQuery
+                          ? 'Prueba con otro nombre, documento o ciudad.'
+                          : 'Registra un cliente para poder crear su primera cuenta de cobro.'
+                      }}
+                    </p>
+                    <Button
+                      v-if="searchQuery"
+                      class="mt-5"
+                      variant="outline"
+                      @click="searchQuery = ''"
+                      >Limpiar búsqueda</Button
+                    >
+                    <Button v-else class="mt-5" @click="openNewDialog"
+                      ><Plus /> Nuevo cliente</Button
+                    >
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -565,7 +625,9 @@ onMounted(loadClients)
           <div class="p-5">
             <div class="flex items-start justify-between gap-4">
               <div class="flex min-w-0 items-center gap-3">
-                <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent font-mono text-xs font-semibold text-primary">
+                <div
+                  class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent font-mono text-xs font-semibold text-primary"
+                >
                   {{ getInitials(client.name) }}
                 </div>
                 <div class="min-w-0">
@@ -585,7 +647,9 @@ onMounted(loadClients)
             <div class="mt-5 rounded-xl bg-secondary/55 p-4">
               <div class="flex items-end justify-between gap-4 border-b pb-3">
                 <div>
-                  <p class="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground">ACTIVIDAD</p>
+                  <p class="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground">
+                    ACTIVIDAD
+                  </p>
                   <p class="metric-value mt-1 text-lg font-semibold">
                     ${{ formatCurrency(getClientMetric(client.id).total_issued) }}
                   </p>
@@ -601,16 +665,25 @@ onMounted(loadClients)
                   <span class="truncate">{{ client.email || 'Correo sin registrar' }}</span>
                 </p>
                 <p class="flex items-center gap-2">
-                  <Phone class="size-4 text-muted-foreground" /> {{ client.phone || 'Teléfono sin registrar' }}
+                  <Phone class="size-4 text-muted-foreground" />
+                  {{ client.phone || 'Teléfono sin registrar' }}
                 </p>
               </div>
             </div>
           </div>
 
-          <div class="grid grid-cols-2 border-t border-border/70 bg-secondary/25 p-2">
+          <div class="grid grid-cols-3 border-t border-border/70 bg-secondary/25 p-2">
             <button
               type="button"
               class="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent/50 text-sm font-semibold text-primary transition-colors hover:bg-accent"
+              :aria-label="`Ver detalle de ${client.name}`"
+              @click="router.push(`/clients/${client.id}`)"
+            >
+              <Eye class="size-4" /> Detalle
+            </button>
+            <button
+              type="button"
+              class="flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
               :aria-label="`Editar cliente ${client.name}`"
               @click="editClient(client)"
             >
@@ -629,11 +702,19 @@ onMounted(loadClients)
 
         <div v-if="!isLoading && filteredClients.length === 0" class="surface empty-state">
           <div class="empty-state-icon"><UsersRound class="size-5" /></div>
-          <h2 class="section-title">{{ searchQuery ? 'No hay coincidencias' : 'Aún no tienes clientes' }}</h2>
+          <h2 class="section-title">
+            {{ searchQuery ? 'No hay coincidencias' : 'Aún no tienes clientes' }}
+          </h2>
           <p class="mt-2 max-w-md text-sm text-muted-foreground">
-            {{ searchQuery ? 'Prueba con otro nombre, documento o ciudad.' : 'Registra un cliente para poder crear su primera cuenta de cobro.' }}
+            {{
+              searchQuery
+                ? 'Prueba con otro nombre, documento o ciudad.'
+                : 'Registra un cliente para poder crear su primera cuenta de cobro.'
+            }}
           </p>
-          <Button v-if="searchQuery" class="mt-5" variant="outline" @click="searchQuery = ''">Limpiar búsqueda</Button>
+          <Button v-if="searchQuery" class="mt-5" variant="outline" @click="searchQuery = ''"
+            >Limpiar búsqueda</Button
+          >
           <Button v-else class="mt-5" @click="openNewDialog"><Plus /> Nuevo cliente</Button>
         </div>
       </div>

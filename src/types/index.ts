@@ -13,6 +13,7 @@ export interface Profile {
   email: string
   bank_info: string
   signature?: string | null
+  signature_color?: string
   signature_mode?: SignatureMode
   default_template?: TemplateId
 }

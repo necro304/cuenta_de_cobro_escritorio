@@ -19,6 +19,10 @@ export interface ElectronAPI {
     template: string
     includeSignature: boolean
   }) => Promise<{ success: boolean; message: string }>
+  exportClientReportPdf: (opts: {
+    clientId: number
+    clientName: string
+  }) => Promise<{ success: boolean; message: string }>
   notifyPrintReady: () => void
 }
 

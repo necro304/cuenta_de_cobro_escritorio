@@ -163,6 +163,15 @@ const loadData = async () => {
     clients.value = result.value.clientes
     bankAccounts.value = result.value.cuentasBancarias
 
+    const requestedClientId = Number(route.query.clientId)
+    if (
+      id === null &&
+      Number.isSafeInteger(requestedClientId) &&
+      result.value.clientes.some((client) => client.id === requestedClientId)
+    ) {
+      invoice.value.clientId = requestedClientId
+    }
+
     if (result.value.diagnostics.length > 0) {
       toast({
         title: 'Esta cuenta requiere correcciones',

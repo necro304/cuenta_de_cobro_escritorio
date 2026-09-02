@@ -11,6 +11,7 @@ const routes = [
       { path: 'invoices/new', component: () => import('@/views/InvoiceEditor.vue') },
       { path: 'invoices/edit/:id', component: () => import('@/views/InvoiceEditor.vue') },
       { path: 'clients', component: () => import('@/views/Clients.vue') },
+      { path: 'clients/:id', component: () => import('@/views/ClientDetail.vue') },
       { path: 'profile', component: () => import('@/views/Profile.vue') },
       { path: 'settings', component: () => import('@/views/Settings.vue') },
       { path: ':pathMatch(.*)*', component: () => import('@/views/NotFound.vue') },
@@ -19,6 +20,10 @@ const routes = [
   {
     path: '/print/:id',
     component: () => import('@/views/InvoicePrint.vue'),
+  },
+  {
+    path: '/client-report/:id',
+    component: () => import('@/views/ClientReport.vue'),
   },
 ]
 

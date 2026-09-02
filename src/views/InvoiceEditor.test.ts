@@ -6,9 +6,10 @@ import type { CuentaDeCobroModule, SaveCuentaDeCobroCommand } from '@/types/cuen
 const push = vi.fn()
 const toast = vi.fn()
 const save = vi.fn()
+const routeQuery: Record<string, string | undefined> = {}
 
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: {} }),
+  useRoute: () => ({ params: {}, query: routeQuery }),
   useRouter: () => ({ push }),
 }))
 
@@ -23,6 +24,7 @@ describe('InvoiceEditor', () => {
     push.mockReset()
     toast.mockReset()
     save.mockReset()
+    delete routeQuery.clientId
     save.mockResolvedValue({
       ok: true,
       value: { id: 1, number: 1, total: '100.00', status: 'draft' },
@@ -41,7 +43,10 @@ describe('InvoiceEditor', () => {
             notes: '',
             concepts: [{ description: 'Servicio', quantity: '1', price: '100' }],
           },
-          clientes: [{ id: 1, name: 'Cliente de prueba' }],
+          clientes: [
+            { id: 1, name: 'Cliente de prueba' },
+            { id: 2, name: 'Cliente preseleccionado' },
+          ],
           cuentasBancarias: [
             {
               id: 1,
@@ -128,5 +133,19 @@ describe('InvoiceEditor', () => {
 
     const command = save.mock.calls[0][0] as SaveCuentaDeCobroCommand
     expect(command.cuenta.number).toBe('7')
+  })
+
+  it('preselecciona el cliente recibido desde el directorio', async () => {
+    routeQuery.clientId = '2'
+    const wrapper = await mountEditor()
+
+    const saveButton = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Guardar cuenta')
+    await saveButton?.trigger('click')
+    await flushPromises()
+
+    const command = save.mock.calls[0][0] as SaveCuentaDeCobroCommand
+    expect(command.cuenta.clientId).toBe(2)
   })
 })

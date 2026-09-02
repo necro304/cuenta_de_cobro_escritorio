@@ -19,6 +19,7 @@ export function initDb() {
       bank_info TEXT,
       signature_path TEXT,
       signature TEXT,
+      signature_color TEXT DEFAULT '#245f46',
       signature_mode TEXT DEFAULT 'auto',
       default_template TEXT DEFAULT 'default'
     );
@@ -104,6 +105,12 @@ export function initDb() {
 
   try {
     db.prepare('ALTER TABLE profile ADD COLUMN signature TEXT').run()
+  } catch {
+    // Column might already exist
+  }
+
+  try {
+    db.prepare("ALTER TABLE profile ADD COLUMN signature_color TEXT DEFAULT '#245f46'").run()
   } catch {
     // Column might already exist
   }

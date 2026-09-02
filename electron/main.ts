@@ -211,6 +211,69 @@ app.whenReady().then(() => {
     },
   )
 
+  ipcMain.handle(
+    'export-client-report-pdf',
+    async (_event, opts: { clientId: number; clientName: string }) => {
+      if (!win) return { success: false, message: 'No window found' }
+
+      const safeClientName = opts.clientName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 60)
+      const defaultName = `informe_${safeClientName || `cliente_${opts.clientId}`}.pdf`
+      const { canceled, filePath } = await dialog.showSaveDialog(win, {
+        title: 'Descargar informe del cliente',
+        defaultPath: path.join(app.getPath('downloads'), defaultName),
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      })
+      if (canceled || !filePath) return { success: false, message: 'Operación cancelada.' }
+
+      const pdfWin = new BrowserWindow({
+        show: false,
+        width: 900,
+        height: 1200,
+        webPreferences: {
+          preload: path.join(__dirname, 'preload.mjs'),
+        },
+      })
+
+      try {
+        const hash = `/client-report/${opts.clientId}?pdf=1`
+        const ready = new Promise<void>((resolve, reject) => {
+          printReadyResolvers.set(pdfWin.webContents.id, resolve)
+          setTimeout(
+            () => reject(new Error('Tiempo de espera agotado generando el informe')),
+            15_000,
+          )
+        })
+
+        if (VITE_DEV_SERVER_URL) {
+          await pdfWin.loadURL(`${VITE_DEV_SERVER_URL}#${hash}`)
+        } else {
+          await pdfWin.loadFile(path.join(RENDERER_DIST, 'index.html'), { hash })
+        }
+
+        await ready
+        const pdfData = await pdfWin.webContents.printToPDF({
+          printBackground: true,
+          pageSize: 'A4',
+          preferCSSPageSize: true,
+          margins: { top: 0, bottom: 0, left: 0, right: 0 },
+        })
+        fs.writeFileSync(filePath, pdfData)
+        return { success: true, message: filePath }
+      } catch (err: unknown) {
+        return { success: false, message: (err as Error).message }
+      } finally {
+        printReadyResolvers.delete(pdfWin.webContents.id)
+        pdfWin.destroy()
+      }
+    },
+  )
+
   createWindow()
 
   // --- Auto Updater ---

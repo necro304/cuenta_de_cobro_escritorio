@@ -33,6 +33,12 @@ import { useProfile } from '@/composables/useProfile'
 import type { BankAccount, SignatureMode, TemplateId } from '@/types'
 import PageHeader from '@/components/PageHeader.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import {
+  DEFAULT_SIGNATURE_COLOR,
+  SIGNATURE_COLOR_PRESETS,
+  normalizeSignatureColor,
+  recolorSignatureDataUrl,
+} from '@/lib/signature'
 
 const { toast } = useToast()
 const { loadProfile: fetchProfile } = useProfile()
@@ -58,6 +64,8 @@ const profile = ref({
 })
 
 const signature = ref<string | null>(null)
+const signatureColor = ref(DEFAULT_SIGNATURE_COLOR)
+const isSavingSignatureColor = ref(false)
 const isSignatureDialogOpen = ref(false)
 const signatureFileInput = ref<HTMLInputElement | null>(null)
 
@@ -85,6 +93,8 @@ const loadProfile = async () => {
       default_template: data.default_template ?? 'default',
     }
     signature.value = data.signature ?? null
+    signatureColor.value =
+      normalizeSignatureColor(data.signature_color ?? '') ?? DEFAULT_SIGNATURE_COLOR
   }
 }
 
@@ -100,14 +110,47 @@ const validateSignatureFile = (file: File): string | null => {
 
 const saveSignature = async (dataUrl: string | null) => {
   try {
-    await window.electronAPI.dbRun('UPDATE profile SET signature = ? WHERE id = 1', [dataUrl])
-    signature.value = dataUrl
+    const recoloredSignature = dataUrl
+      ? await recolorSignatureDataUrl(dataUrl, signatureColor.value)
+      : null
+    await window.electronAPI.dbRun(
+      'UPDATE profile SET signature = ?, signature_color = ? WHERE id = 1',
+      [recoloredSignature, signatureColor.value],
+    )
+    signature.value = recoloredSignature
     toast({
       title: dataUrl ? 'Firma guardada' : 'Firma eliminada',
       description: dataUrl ? 'Tu firma se usará según el modo configurado.' : undefined,
     })
   } catch {
     toast({ title: 'Error', description: 'No se pudo guardar la firma', variant: 'destructive' })
+  }
+}
+
+const updateSignatureColor = async (value: string) => {
+  const color = normalizeSignatureColor(value)
+  if (!color || color === signatureColor.value || isSavingSignatureColor.value) return
+
+  isSavingSignatureColor.value = true
+  try {
+    const recoloredSignature = signature.value
+      ? await recolorSignatureDataUrl(signature.value, color)
+      : null
+    await window.electronAPI.dbRun(
+      'UPDATE profile SET signature = ?, signature_color = ? WHERE id = 1',
+      [recoloredSignature, color],
+    )
+    signature.value = recoloredSignature
+    signatureColor.value = color
+    toast({ title: 'Color de firma actualizado' })
+  } catch {
+    toast({
+      title: 'Error',
+      description: 'No se pudo cambiar el color de la firma',
+      variant: 'destructive',
+    })
+  } finally {
+    isSavingSignatureColor.value = false
   }
 }
 
@@ -531,6 +574,49 @@ onMounted(loadAll)
           </div>
 
           <div class="space-y-4 rounded-lg bg-secondary/55 p-4">
+            <div class="grid gap-3">
+              <div>
+                <Label>Color de la firma</Label>
+                <p class="mt-1 text-xs text-muted-foreground">
+                  Se aplicará a la vista previa, impresión y PDF.
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  v-for="preset in SIGNATURE_COLOR_PRESETS"
+                  :key="preset.value"
+                  type="button"
+                  class="relative h-9 w-9 rounded-full border-2 transition-transform hover:scale-105 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                  :class="
+                    signatureColor === preset.value
+                      ? 'border-foreground ring-2 ring-background'
+                      : 'border-background'
+                  "
+                  :style="{ backgroundColor: preset.value }"
+                  :aria-label="`Usar tinta ${preset.name.toLowerCase()}`"
+                  :aria-pressed="signatureColor === preset.value"
+                  :disabled="isSavingSignatureColor"
+                  :title="preset.name"
+                  @click="updateSignatureColor(preset.value)"
+                ></button>
+                <label
+                  for="signature-custom-color"
+                  class="ml-1 flex h-9 cursor-pointer items-center gap-2 rounded-lg border bg-background px-2.5 text-xs font-medium"
+                >
+                  <input
+                    id="signature-custom-color"
+                    type="color"
+                    class="h-5 w-5 cursor-pointer border-0 bg-transparent p-0"
+                    :value="signatureColor"
+                    :disabled="isSavingSignatureColor"
+                    aria-label="Color de firma personalizado"
+                    @change="updateSignatureColor(($event.target as HTMLInputElement).value)"
+                  />
+                  Personalizado
+                </label>
+              </div>
+            </div>
+
             <div class="grid gap-2">
               <Label for="signature-mode">Uso de la firma en documentos</Label>
               <Select
@@ -612,7 +698,11 @@ onMounted(loadAll)
       </DialogContent>
     </Dialog>
 
-    <SignaturePadDialog v-model:open="isSignatureDialogOpen" @save="saveSignature" />
+    <SignaturePadDialog
+      v-model:open="isSignatureDialogOpen"
+      :pen-color="signatureColor"
+      @save="saveSignature"
+    />
     <ConfirmDialog
       :open="pendingDeletion !== null"
       :title="pendingDeletion?.kind === 'signature' ? 'Eliminar firma' : 'Eliminar cuenta bancaria'"

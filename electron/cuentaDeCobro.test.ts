@@ -16,6 +16,11 @@ const run = async () => {
     closeDatabase = () => db.close()
     initDb()
 
+    const profile = db.prepare('SELECT signature_color FROM profile WHERE id = 1').get() as {
+      signature_color: string
+    }
+    assert.equal(profile.signature_color, '#245f46')
+
     const client = db.prepare('INSERT INTO clients (name) VALUES (?)').run('Cliente de prueba')
     const bankAccount = db
       .prepare(

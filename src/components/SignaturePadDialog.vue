@@ -11,6 +11,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { DEFAULT_SIGNATURE_COLOR } from '@/lib/signature'
+
+const props = withDefaults(
+  defineProps<{
+    penColor?: string
+  }>(),
+  {
+    penColor: DEFAULT_SIGNATURE_COLOR,
+  },
+)
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -32,7 +42,7 @@ const initPad = () => {
   canvas.getContext('2d')?.scale(ratio, ratio)
 
   pad = new SignaturePad(canvas, {
-    penColor: '#245f46',
+    penColor: props.penColor,
     minWidth: 1,
     maxWidth: 2.5,
   })
@@ -56,6 +66,13 @@ watch(open, async (isOpen) => {
     destroyPad()
   }
 })
+
+watch(
+  () => props.penColor,
+  (penColor) => {
+    if (pad) pad.penColor = penColor
+  },
+)
 
 onBeforeUnmount(destroyPad)
 
