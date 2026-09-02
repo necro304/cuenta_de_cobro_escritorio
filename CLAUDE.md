@@ -16,11 +16,12 @@ npm run build        # vue-tsc + vite build + electron-builder (genera instalado
 npm run lint         # ESLint
 npm run lint:fix     # ESLint con autofix
 npm run format       # Prettier
+npm run test:renderer # Componentes Vue con Vitest
 npm run test:database # Integración del módulo de cuenta de cobro con Electron + SQLite temporal
 npx vue-tsc --noEmit # Solo type-check (lo que corre CI)
 ```
 
-El módulo de persistencia de cuentas de cobro tiene un harness de integración que corre dentro del proceso main de Electron contra SQLite temporal. CI (PRs a `main`) corre: lint, `vue-tsc --noEmit`, `npm run test:database` y `npx vite build`. El trabajo diario va en la rama `dev`; los PRs apuntan a `main`. Los releases se publican con tags `v*` (matriz Linux/Windows/macOS hacia GitHub Releases del repo `necro304/cuenta_de_cobro_escritorio`, usado también por electron-updater para auto-actualización).
+El módulo de persistencia de cuentas de cobro tiene un harness de integración que corre dentro del proceso main de Electron contra SQLite temporal. CI (PRs a `main`) corre: lint, `vue-tsc --noEmit`, `npm run test:renderer`, `npm run test:database` y `npx vite build`. El trabajo diario va en la rama `dev`; los PRs apuntan a `main`. Los releases se publican con tags `v*` (matriz Linux/Windows/macOS hacia GitHub Releases del repo `necro304/cuenta_de_cobro_escritorio`, usado también por electron-updater para auto-actualización).
 
 ## Arquitectura
 

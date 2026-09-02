@@ -318,7 +318,12 @@ onMounted(loadData)
             <div class="grid gap-4 sm:grid-cols-2">
               <div class="grid gap-2">
                 <Label for="invoice-number">Número</Label>
-                <Input id="invoice-number" v-model="invoice.number" type="number" />
+                <Input
+                  id="invoice-number"
+                  :model-value="invoice.number"
+                  type="number"
+                  @update:model-value="invoice.number = String($event)"
+                />
               </div>
               <div class="grid gap-2">
                 <Label for="invoice-date">Fecha</Label>
@@ -425,11 +430,23 @@ onMounted(loadData)
               </div>
               <div class="col-span-4 grid gap-2 sm:col-span-2">
                 <Label>Cantidad</Label>
-                <Input v-model="item.quantity" type="number" step="0.01" min="0.01" />
+                <Input
+                  :model-value="item.quantity"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  @update:model-value="item.quantity = String($event)"
+                />
               </div>
               <div class="col-span-6 grid gap-2 sm:col-span-3">
                 <Label>Precio unitario</Label>
-                <Input v-model="item.price" type="number" step="0.01" min="0.01" />
+                <Input
+                  :model-value="item.price"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  @update:model-value="item.price = String($event)"
+                />
                 <p class="text-xs text-muted-foreground">
                   Subtotal
                   <span class="metric-value font-semibold text-foreground">
