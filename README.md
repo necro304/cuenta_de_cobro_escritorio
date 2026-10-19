@@ -54,7 +54,7 @@ Aplicación de escritorio moderna y eficiente para la gestión de cuentas de cob
 
 ## 🐧 Instalación en Ubuntu
 
-Los próximos releases publicados desde GitHub Actions incluirán un paquete `.deb`, además del formato `AppImage`.
+A partir de la versión `1.0.11`, los releases publicados desde GitHub Actions incluyen un paquete `.deb`, además del formato `AppImage`.
 
 Descarga el archivo `CuentaCobro-Linux-<versión>.deb` desde [GitHub Releases](https://github.com/necro304/cuenta_de_cobro_escritorio/releases) y, desde la carpeta de descarga, instálalo con:
 
