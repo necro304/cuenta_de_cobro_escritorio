@@ -52,6 +52,18 @@ Aplicación de escritorio moderna y eficiente para la gestión de cuentas de cob
     npm run build
     ```
 
+## 🐧 Instalación en Ubuntu
+
+Los próximos releases publicados desde GitHub Actions incluirán un paquete `.deb`, además del formato `AppImage`.
+
+Descarga el archivo `CuentaCobro-Linux-<versión>.deb` desde [GitHub Releases](https://github.com/necro304/cuenta_de_cobro_escritorio/releases) y, desde la carpeta de descarga, instálalo con:
+
+```bash
+sudo apt install ./CuentaCobro-Linux-<versión>.deb
+```
+
+Reemplaza `<versión>` por la versión descargada. La publicación se ejecuta al subir un tag `v*` al repositorio.
+
 ## 🍎 Instalación en macOS
 
 Si al intentar abrir la aplicación en macOS recibes el error: **"CuentaCobro" está dañado y no puede abrirse. Deberías moverlo al basurero**, esto se debe a que la aplicación no está firmada por Apple.

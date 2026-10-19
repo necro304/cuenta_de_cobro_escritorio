@@ -36,7 +36,8 @@
     deleteAppDataOnUninstall: false,
   },
   linux: {
-    target: ['AppImage'],
+    target: ['AppImage', 'deb'],
+    maintainer: 'necro304 <necro304@users.noreply.github.com>',
     artifactName: '${productName}-Linux-${version}.${ext}',
   },
 }
