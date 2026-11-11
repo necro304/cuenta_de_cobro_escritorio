@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { formatCurrency, formatDate } from '@/lib/format'
+import { dbGet, dbQuery } from '@/api/backend'
+import { signalPrintReady } from '@/lib/printReady'
 import type { Client, Invoice, InvoicePayment, Profile } from '@/types'
 
 interface MonthlyAmount {
@@ -151,13 +153,6 @@ const compactCurrency = (value: number) =>
 const statusLabel = (status: Invoice['status']) =>
   statusMeta[status].label.replace('Pagadas', 'Pagada').replace('Pendientes', 'Pendiente')
 
-const signalReady = async () => {
-  if (!isPdfMode) return
-  await nextTick()
-  if (document.fonts) await document.fonts.ready
-  setTimeout(() => window.electronAPI.notifyPrintReady(), 100)
-}
-
 const loadReport = async () => {
   isLoading.value = true
   loadError.value = false
@@ -171,9 +166,9 @@ const loadReport = async () => {
       collectedByMonth,
       clientPayments,
     ] = await Promise.all([
-      window.electronAPI.dbGet<Client>('SELECT * FROM clients WHERE id = ?', [clientId]),
-      window.electronAPI.dbGet<Profile>('SELECT * FROM profile WHERE id = 1'),
-      window.electronAPI.dbQuery<Invoice>(
+      dbGet<Client>('SELECT * FROM clients WHERE id = ?', [clientId]),
+      dbGet<Profile>('SELECT * FROM profile WHERE id = 1'),
+      dbQuery<Invoice>(
         `SELECT i.*,
             COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0) as paid_amount,
             MAX(i.total - COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0), 0) as balance
@@ -182,7 +177,7 @@ const loadReport = async () => {
           ORDER BY i.date DESC, i.number DESC`,
         [clientId],
       ),
-      window.electronAPI.dbQuery<MonthlyAmount>(
+      dbQuery<MonthlyAmount>(
         `SELECT strftime('%Y-%m', date) as month, COALESCE(SUM(total), 0) as total
           FROM invoices
           WHERE client_id = ?
@@ -191,7 +186,7 @@ const loadReport = async () => {
           ORDER BY month`,
         [clientId],
       ),
-      window.electronAPI.dbQuery<MonthlyAmount>(
+      dbQuery<MonthlyAmount>(
         `SELECT strftime('%Y-%m', p.date) as month, COALESCE(SUM(p.amount), 0) as total
           FROM invoice_payments p
           JOIN invoices i ON i.id = p.invoice_id
@@ -201,7 +196,7 @@ const loadReport = async () => {
           ORDER BY month`,
         [clientId],
       ),
-      window.electronAPI.dbQuery<ClientPayment>(
+      dbQuery<ClientPayment>(
         `SELECT p.*, i.number as invoice_number
           FROM invoice_payments p
           JOIN invoices i ON i.id = p.invoice_id
@@ -227,7 +222,7 @@ const loadReport = async () => {
     loadError.value = true
   } finally {
     isLoading.value = false
-    await signalReady()
+    if (isPdfMode) await signalPrintReady()
   }
 }
 
@@ -1395,8 +1390,9 @@ onMounted(loadReport)
   }
 
   .report-page {
-    height: 297mm;
-    min-height: 297mm;
+    /* 1px menos que A4: con 297mm exactos WebKit añade una hoja en blanco al final */
+    height: calc(297mm - 1px);
+    min-height: 0;
   }
 
   @page {

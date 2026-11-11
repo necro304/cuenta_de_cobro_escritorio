@@ -5,7 +5,10 @@ import type { CuentaDeCobroModule, SaveCuentaDeCobroCommand } from '@/types/cuen
 
 const push = vi.fn()
 const toast = vi.fn()
-const save = vi.fn()
+const cuentaDeCobro = vi.hoisted(() => ({ open: vi.fn(), save: vi.fn() }))
+const save = cuentaDeCobro.save
+
+vi.mock('@/api/backend', () => ({ cuentaDeCobro }))
 const routeQuery: Record<string, string | undefined> = {}
 
 vi.mock('vue-router', () => ({
@@ -30,48 +33,40 @@ describe('InvoiceEditor', () => {
       value: { id: 1, number: 1, total: '100.00', status: 'draft' },
     })
 
-    const cuentaDeCobro: CuentaDeCobroModule = {
-      open: vi.fn().mockResolvedValue({
-        ok: true,
-        value: {
-          target: { kind: 'create' },
-          cuenta: {
-            number: '1',
-            date: '2026-09-02',
-            clientId: 1,
-            bankAccountId: 1,
-            notes: '',
-            concepts: [{ description: 'Servicio', quantity: '1', price: '100' }],
-          },
-          clientes: [
-            { id: 1, name: 'Cliente de prueba' },
-            { id: 2, name: 'Cliente preseleccionado' },
-          ],
-          cuentasBancarias: [
-            {
-              id: 1,
-              bank: 'Banco de prueba',
-              accountType: 'Ahorros',
-              accountNumber: '1234',
-              isDefault: true,
-            },
-          ],
-          summary: {
-            total: '0.00',
-            paidAmount: '0.00',
-            balance: '0.00',
-            paymentStatus: 'draft',
-          },
-          diagnostics: [],
+    cuentaDeCobro.open.mockReset().mockResolvedValue({
+      ok: true,
+      value: {
+        target: { kind: 'create' },
+        cuenta: {
+          number: '1',
+          date: '2026-09-02',
+          clientId: 1,
+          bankAccountId: 1,
+          notes: '',
+          concepts: [{ description: 'Servicio', quantity: '1', price: '100' }],
         },
-      }),
-      save,
-    }
-
-    Object.defineProperty(window, 'electronAPI', {
-      configurable: true,
-      value: { cuentaDeCobro },
-    })
+        clientes: [
+          { id: 1, name: 'Cliente de prueba' },
+          { id: 2, name: 'Cliente preseleccionado' },
+        ],
+        cuentasBancarias: [
+          {
+            id: 1,
+            bank: 'Banco de prueba',
+            accountType: 'Ahorros',
+            accountNumber: '1234',
+            isDefault: true,
+          },
+        ],
+        summary: {
+          total: '0.00',
+          paidAmount: '0.00',
+          balance: '0.00',
+          paymentStatus: 'draft',
+        },
+        diagnostics: [],
+      },
+    } satisfies Awaited<ReturnType<CuentaDeCobroModule['open']>>)
   })
 
   const mountEditor = async () => {

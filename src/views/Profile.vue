@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import {
   Card,
   CardContent,
@@ -29,7 +30,8 @@ import {
 } from '@/components/ui/select'
 import SignaturePadDialog from '@/components/SignaturePadDialog.vue'
 import { Plus, Pencil, Trash2, CheckCircle2, Upload, PenLine, RotateCcw } from '@lucide/vue'
-import { useProfile } from '@/composables/useProfile'
+import { useProfileStore } from '@/stores/profile'
+import { useBankAccountsStore } from '@/stores/bankAccounts'
 import type { BankAccount, SignatureMode, TemplateId } from '@/types'
 import PageHeader from '@/components/PageHeader.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -41,7 +43,9 @@ import {
 } from '@/lib/signature'
 
 const { toast } = useToast()
-const { loadProfile: fetchProfile } = useProfile()
+const profileStore = useProfileStore()
+const bankAccountsStore = useBankAccountsStore()
+const { accounts: bankAccounts } = storeToRefs(bankAccountsStore)
 const isLoading = ref(true)
 const loadError = ref(false)
 const isSavingProfile = ref(false)
@@ -69,7 +73,6 @@ const isSavingSignatureColor = ref(false)
 const isSignatureDialogOpen = ref(false)
 const signatureFileInput = ref<HTMLInputElement | null>(null)
 
-const bankAccounts = ref<BankAccount[]>([])
 const isDialogOpen = ref(false)
 const editingAccount = ref<Partial<BankAccount>>({
   bank: '',
@@ -78,7 +81,7 @@ const editingAccount = ref<Partial<BankAccount>>({
 })
 
 const loadProfile = async () => {
-  const data = await fetchProfile()
+  const data = await profileStore.load()
   if (data) {
     profile.value = {
       name: data.name ?? '',
@@ -113,10 +116,7 @@ const saveSignature = async (dataUrl: string | null) => {
     const recoloredSignature = dataUrl
       ? await recolorSignatureDataUrl(dataUrl, signatureColor.value)
       : null
-    await window.electronAPI.dbRun(
-      'UPDATE profile SET signature = ?, signature_color = ? WHERE id = 1',
-      [recoloredSignature, signatureColor.value],
-    )
+    await profileStore.saveSignature(recoloredSignature, signatureColor.value)
     signature.value = recoloredSignature
     toast({
       title: dataUrl ? 'Firma guardada' : 'Firma eliminada',
@@ -136,10 +136,7 @@ const updateSignatureColor = async (value: string) => {
     const recoloredSignature = signature.value
       ? await recolorSignatureDataUrl(signature.value, color)
       : null
-    await window.electronAPI.dbRun(
-      'UPDATE profile SET signature = ?, signature_color = ? WHERE id = 1',
-      [recoloredSignature, color],
-    )
+    await profileStore.saveSignature(recoloredSignature, color)
     signature.value = recoloredSignature
     signatureColor.value = color
     toast({ title: 'Color de firma actualizado' })
@@ -179,10 +176,10 @@ const deleteSignature = () => {
 
 const saveSignaturePrefs = async () => {
   try {
-    await window.electronAPI.dbRun(
-      'UPDATE profile SET signature_mode = ?, default_template = ? WHERE id = 1',
-      [profile.value.signature_mode, profile.value.default_template],
-    )
+    await profileStore.savePreferences({
+      signatureMode: profile.value.signature_mode,
+      defaultTemplate: profile.value.default_template,
+    })
   } catch {
     toast({
       title: 'Error',
@@ -202,13 +199,6 @@ const updateDefaultTemplate = (value: unknown) => {
   saveSignaturePrefs()
 }
 
-const loadBankAccounts = async () => {
-  const data = await window.electronAPI.dbQuery<BankAccount>(
-    'SELECT * FROM bank_accounts ORDER BY created_at DESC',
-  )
-  bankAccounts.value = data
-}
-
 const validateProfile = (): string | null => {
   if (!profile.value.name.trim()) return 'El nombre es requerido'
   return null
@@ -222,19 +212,16 @@ const saveProfile = async () => {
   }
   isSavingProfile.value = true
   try {
-    await window.electronAPI.dbRun(
-      'UPDATE profile SET name = ?, document_type = ?, document_id = ?, rut = ?, address = ?, phone = ?, email = ?, bank_info = ? WHERE id = 1',
-      [
-        profile.value.name || '',
-        profile.value.document_type || 'C.C',
-        profile.value.document_id || '',
-        profile.value.rut || '',
-        profile.value.address || '',
-        profile.value.phone || '',
-        profile.value.email || '',
-        profile.value.bank_info || '',
-      ],
-    )
+    await profileStore.saveDetails({
+      name: profile.value.name || '',
+      document_type: profile.value.document_type || 'C.C',
+      document_id: profile.value.document_id || '',
+      rut: profile.value.rut || '',
+      address: profile.value.address || '',
+      phone: profile.value.phone || '',
+      email: profile.value.email || '',
+      bank_info: profile.value.bank_info || '',
+    })
     toast({
       title: 'Perfil actualizado',
       description: 'Los datos de tu perfil han sido guardados correctamente.',
@@ -274,38 +261,17 @@ const saveBankAccount = async () => {
   }
 
   try {
-    if (editingAccount.value.id) {
-      await window.electronAPI.dbRun(
-        'UPDATE bank_accounts SET bank = ?, account_type = ?, account_number = ? WHERE id = ?',
-        [
-          editingAccount.value.bank || '',
-          editingAccount.value.account_type || '',
-          editingAccount.value.account_number || '',
-          editingAccount.value.id,
-        ],
-      )
-    } else {
-      // If it's the first account, make it default
-      const countResult = await window.electronAPI.dbGet<{ count: number }>(
-        'SELECT COUNT(*) as count FROM bank_accounts',
-      )
-      const isDefault = countResult?.count === 0 ? 1 : 0
-
-      await window.electronAPI.dbRun(
-        'INSERT INTO bank_accounts (bank, account_type, account_number, is_default) VALUES (?, ?, ?, ?)',
-        [
-          editingAccount.value.bank || '',
-          editingAccount.value.account_type || '',
-          editingAccount.value.account_number || '',
-          isDefault,
-        ],
-      )
-    }
-
+    await bankAccountsStore.save(
+      {
+        bank: editingAccount.value.bank || '',
+        account_type: editingAccount.value.account_type || '',
+        account_number: editingAccount.value.account_number || '',
+      },
+      editingAccount.value.id,
+    )
     isDialogOpen.value = false
-    await loadBankAccounts()
     toast({ title: 'Éxito', description: 'Cuenta bancaria guardada' })
-  } catch (error) {
+  } catch {
     toast({ title: 'Error', description: 'No se pudo guardar la cuenta', variant: 'destructive' })
   }
 }
@@ -323,10 +289,7 @@ const confirmDeletion = async () => {
     if (deletion.kind === 'signature') {
       await saveSignature(null)
     } else {
-      await window.electronAPI.dbRun('DELETE FROM bank_accounts WHERE id = ?', [
-        deletion.account.id,
-      ])
-      await loadBankAccounts()
+      await bankAccountsStore.remove(deletion.account.id)
       toast({ title: 'Cuenta eliminada' })
     }
     pendingDeletion.value = null
@@ -343,11 +306,9 @@ const confirmDeletion = async () => {
 
 const setDefaultAccount = async (id: number) => {
   try {
-    await window.electronAPI.dbRun('UPDATE bank_accounts SET is_default = 0')
-    await window.electronAPI.dbRun('UPDATE bank_accounts SET is_default = 1 WHERE id = ?', [id])
-    await loadBankAccounts()
+    await bankAccountsStore.setDefault(id)
     toast({ title: 'Éxito', description: 'Cuenta predeterminada actualizada' })
-  } catch (error) {
+  } catch {
     toast({
       title: 'Error',
       description: 'No se pudo actualizar la cuenta predeterminada',
@@ -360,7 +321,7 @@ const loadAll = async () => {
   isLoading.value = true
   loadError.value = false
   try {
-    await Promise.all([loadProfile(), loadBankAccounts()])
+    await Promise.all([loadProfile(), bankAccountsStore.load()])
   } catch {
     loadError.value = true
     toast({

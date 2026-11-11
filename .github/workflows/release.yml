@@ -1,38 +1,209 @@
-name: Build and Release
+name: Release
 
 on:
   push:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+
 jobs:
-  release:
-    name: Build and Release
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
-
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-
+  create-release:
+    name: Crear release en borrador
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.release.outputs.release_id }}
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Verificar que el tag coincide con package.json
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "v${PKG_VERSION}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::El tag ${GITHUB_REF_NAME} no coincide con la versión de package.json (${PKG_VERSION})."
+            exit 1
+          fi
+
+      - name: Verificar llave pública del updater
+        run: |
+          if grep -q 'REEMPLAZAR' src-tauri/tauri.conf.json; then
+            echo "::error::plugins.updater.pubkey en src-tauri/tauri.conf.json sigue con el marcador."
+            exit 1
+          fi
+
+      # Sin la llave privada, `tauri build` falla DESPUÉS de compilar en los 4 runners
+      # (createUpdaterArtifacts: true) y tauri-action lo reintenta: mejor fallar aquí en segundos.
+      - name: Verificar secretos de firma del updater
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          [ -n "$KEY" ] || { echo "::error::Falta el secreto TAURI_SIGNING_PRIVATE_KEY."; exit 1; }
+          [ -n "$PASSWORD" ] || { echo "::error::Falta el secreto TAURI_SIGNING_PRIVATE_KEY_PASSWORD."; exit 1; }
+
+      - name: Crear (o reutilizar) el release en borrador
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          NOTES="docs/releases/${GITHUB_REF_NAME}.md"
+          TITLE="CuentaCobro ${GITHUB_REF_NAME#v}"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "El release ${GITHUB_REF_NAME} ya existe; se reutiliza."
+          elif [ -f "$NOTES" ]; then
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "$TITLE" --notes-file "$NOTES"
+          else
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "$TITLE" --generate-notes
+          fi
+          echo "release_id=$(gh release view "$GITHUB_REF_NAME" --json databaseId --jq .databaseId)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Compilar (${{ matrix.name }})
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS universal
+            platform: macos-latest
+            args: --target universal-apple-darwin
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+            cache_key: universal-apple-darwin
+          - name: Windows x64
+            platform: windows-latest
+            args: --target x86_64-pc-windows-msvc
+            rust_targets: x86_64-pc-windows-msvc
+            cache_key: x86_64-pc-windows-msvc
+          - name: Windows ARM64
+            platform: windows-latest
+            args: --target aarch64-pc-windows-msvc
+            rust_targets: aarch64-pc-windows-msvc
+            cache_key: aarch64-pc-windows-msvc
+          - name: Linux x64
+            platform: ubuntu-22.04
+            args: ''
+            rust_targets: ''
+            cache_key: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Dependencias del sistema (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
-      - name: Install Dependencies
-        run: npm ci --ignore-scripts
+      # Misma versión fija que ci.yml (se sube a mano en un PR propio).
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+          targets: ${{ matrix.rust_targets }}
 
-      - name: Rebuild native deps for Electron
-        run: npx electron-builder install-app-deps
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ${{ matrix.cache_key }}
 
-      - name: Build and Publish
-        run: npm run build -- --publish always
+      - name: Instalar dependencias npm
+        run: npm ci
+
+      - name: Compilar, firmar y subir al release
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ github.ref_name }}
+          releaseDraft: true
+          args: ${{ matrix.args }}
+          updaterJsonPreferNsis: true
+          # Los 4 jobs reescriben latest.json a la vez y chocan; cada reintento espera 1-10 s al azar.
+          # (También reintenta la compilación si falla: CI ya compiló y empaquetó en el PR.)
+          retryAttempts: 3
+
+  publish:
+    name: Verificar y publicar
+    needs: [create-release, build]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Verificar latest.json del updater
+        run: |
+          gh release download "$GITHUB_REF_NAME" --pattern latest.json --dir updater --clobber
+          jq . updater/latest.json
+          jq -e --arg v "${GITHUB_REF_NAME#v}" '.version | ltrimstr("v") == $v' updater/latest.json >/dev/null \
+            || { echo "::error::La versión de latest.json no coincide con ${GITHUB_REF_NAME}."; exit 1; }
+          # Genéricas ({os}-{arch}) y por instalador ({os}-{arch}-{bundle}): el plugin busca primero la
+          # segunda. Sin linux-x86_64-deb, una instalación .deb recibiría el AppImage y fallaría al instalar.
+          for key in darwin-aarch64 darwin-x86_64 windows-x86_64 windows-aarch64 linux-x86_64 \
+                     darwin-aarch64-app darwin-x86_64-app windows-x86_64-nsis windows-aarch64-nsis \
+                     linux-x86_64-deb linux-x86_64-appimage; do
+            if ! jq -e --arg k "$key" '.platforms[$k].url and .platforms[$k].signature' updater/latest.json >/dev/null; then
+              echo "::error::latest.json no contiene la plataforma ${key}. Reejecuta el job de esa plataforma y luego este."
+              exit 1
+            fi
+          done
+
+      # tauri-action v1 solo escribe en latest.json las notas de su entrada `releaseBody` (con
+      # `releaseId` no lee el cuerpo del release), así que `notes` llega vacío y el diálogo de
+      # actualización no las mostraría. El release sigue en borrador: nadie descarga este archivo
+      # mientras se reemplaza. `notes` no va firmado (solo los instaladores).
+      - name: Copiar las notas del release a latest.json
+        run: |
+          gh release view "$GITHUB_REF_NAME" --json body --jq '.body // ""' > notes.md
+          jq --rawfile n notes.md '.notes = ($n | rtrimstr("\n"))' updater/latest.json > updater/latest.new
+          mv updater/latest.new updater/latest.json
+          jq -e '.notes | length > 0' updater/latest.json >/dev/null \
+            || { echo "::error::El release ${GITHUB_REF_NAME} no tiene notas: escríbelas en GitHub y reejecuta este job."; exit 1; }
+          gh release upload "$GITHUB_REF_NAME" updater/latest.json --clobber
+
+      - name: Puente para usuarios de CuentaCobro 1.x (electron-updater)
+        if: vars.ELECTRON_BRIDGE_TAG != ''
+        env:
+          BRIDGE_TAG: ${{ vars.ELECTRON_BRIDGE_TAG }}
+        run: |
+          mkdir -p bridge
+          gh release download "$BRIDGE_TAG" --pattern latest.yml --pattern latest-linux.yml --dir bridge --clobber
+          for f in bridge/latest.yml bridge/latest-linux.yml; do
+            sed -E -i "s#^([[:space:]]*(- )?(url|path):[[:space:]]*)([^[:space:]].*)\$#\1../${BRIDGE_TAG}/\4#" "$f"
+            grep -qF "../${BRIDGE_TAG}/" "$f" || { echo "::error::No se reescribieron las URLs de $f."; exit 1; }
+            cat "$f"
+          done
+          gh release upload "$GITHUB_REF_NAME" bridge/latest.yml bridge/latest-linux.yml --clobber
+
+      - name: Publicar el release
+        run: |
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          fi

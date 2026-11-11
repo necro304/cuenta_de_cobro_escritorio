@@ -2,7 +2,16 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ClientReport from './ClientReport.vue'
 
-const notifyPrintReady = vi.fn()
+const backend = vi.hoisted(() => ({
+  dbGet: vi.fn(),
+  dbQuery: vi.fn(),
+  notifyPrintReady: vi.fn(),
+}))
+
+vi.mock('@/api/backend', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/backend')>()),
+  ...backend,
+}))
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: { id: '7' }, query: { pdf: '1' } }),
@@ -11,9 +20,9 @@ vi.mock('vue-router', () => ({
 describe('ClientReport', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    notifyPrintReady.mockReset()
+    backend.notifyPrintReady.mockReset().mockResolvedValue(undefined)
 
-    const dbGet = vi.fn().mockImplementation((sql: string) => {
+    backend.dbGet.mockReset().mockImplementation((sql: string) => {
       if (sql.includes('FROM profile')) {
         return Promise.resolve({
           id: 1,
@@ -36,7 +45,7 @@ describe('ClientReport', () => {
       })
     })
 
-    const dbQuery = vi.fn().mockImplementation((sql: string) => {
+    backend.dbQuery.mockReset().mockImplementation((sql: string) => {
       if (sql.includes('SELECT i.*')) {
         return Promise.resolve([
           {
@@ -77,11 +86,6 @@ describe('ClientReport', () => {
       }
       return Promise.resolve([])
     })
-
-    Object.defineProperty(window, 'electronAPI', {
-      configurable: true,
-      value: { dbGet, dbQuery, notifyPrintReady },
-    })
   })
 
   afterEach(() => {
@@ -100,6 +104,6 @@ describe('ClientReport', () => {
     expect(wrapper.text()).toContain('40%')
     expect(wrapper.text()).toContain('Cuenta #24')
     expect(wrapper.findAll('.report-page')).toHaveLength(2)
-    expect(notifyPrintReady).toHaveBeenCalledOnce()
+    expect(backend.notifyPrintReady).toHaveBeenCalledOnce()
   })
 })

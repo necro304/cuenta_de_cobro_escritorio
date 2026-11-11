@@ -32,7 +32,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/toast/use-toast'
-import { useProfile } from '@/composables/useProfile'
+import { useProfileStore } from '@/stores/profile'
+import { dbQuery, dbRun, exportInvoicePdf } from '@/api/backend'
 import { formatCurrency, formatDate, getTodayDate } from '@/lib/format'
 import { calculateBalance, determineStatus } from '@/lib/invoice'
 import SignatureAskDialog from '@/components/SignatureAskDialog.vue'
@@ -49,22 +50,22 @@ const pendingDeletion = ref<{ kind: 'payment' | 'invoice'; id: number } | null>(
 const isDeleting = ref(false)
 
 // Perfil para la descarga rápida de PDF (plantilla predeterminada y modo de firma)
-const { profile, loadProfile } = useProfile()
+const profileStore = useProfileStore()
 const isAskDialogOpen = ref(false)
 const pendingPdfInvoice = ref<Invoice | null>(null)
 
 const exportPdf = async (invoice: Invoice, includeSignature: boolean) => {
   exportingInvoiceId.value = invoice.id
   try {
-    const result = await window.electronAPI.exportPdf({
+    const result = await exportInvoicePdf({
       invoiceId: invoice.id,
       invoiceNumber: invoice.number,
-      template: profile.value.default_template ?? 'default',
+      template: profileStore.defaultTemplate,
       includeSignature,
     })
-    if (result.success) {
+    if (result.status === 'done') {
       toast({ title: 'PDF descargado', description: result.message })
-    } else if (result.message !== 'Operación cancelada.') {
+    } else if (result.status === 'failed') {
       toast({ title: 'Error', description: result.message, variant: 'destructive' })
     }
   } finally {
@@ -73,13 +74,12 @@ const exportPdf = async (invoice: Invoice, includeSignature: boolean) => {
 }
 
 const downloadPdf = (invoice: Invoice) => {
-  if (profile.value.signature && profile.value.signature_mode === 'ask') {
+  if (profileStore.asksForSignature) {
     pendingPdfInvoice.value = invoice
     isAskDialogOpen.value = true
     return
   }
-  const withSignature = profile.value.signature_mode === 'auto' && !!profile.value.signature
-  exportPdf(invoice, withSignature)
+  exportPdf(invoice, profileStore.signsByDefault)
 }
 
 const onSignatureChoice = (withSignature: boolean) => {
@@ -182,7 +182,7 @@ const loadInvoices = async () => {
   isLoading.value = true
   loadError.value = false
   try {
-    invoices.value = await window.electronAPI.dbQuery<Invoice>(`
+    invoices.value = await dbQuery<Invoice>(`
       SELECT i.*, c.name as client_name,
       COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0) as paid_amount
       FROM invoices i
@@ -213,7 +213,7 @@ const openPayments = async (invoice: Invoice) => {
 }
 
 const loadPayments = async (invoiceId: number) => {
-  payments.value = await window.electronAPI.dbQuery<InvoicePayment>(
+  payments.value = await dbQuery<InvoicePayment>(
     'SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY date DESC, id DESC',
     [invoiceId],
   )
@@ -227,7 +227,7 @@ const checkAndUpdateInvoiceStatus = async (invoiceId: number) => {
   const newStatus = determineStatus(invoice.total, invoice.paid_amount || 0)
 
   if (newStatus !== invoice.status) {
-    await window.electronAPI.dbRun('UPDATE invoices SET status = ? WHERE id = ?', [
+    await dbRun('UPDATE invoices SET status = ? WHERE id = ?', [
       newStatus,
       invoiceId,
     ])
@@ -249,7 +249,7 @@ const savePayment = async () => {
   }
 
   try {
-    await window.electronAPI.dbRun(
+    await dbRun(
       'INSERT INTO invoice_payments (invoice_id, date, amount, notes) VALUES (?, ?, ?, ?)',
       [
         selectedInvoice.value.id,
@@ -265,7 +265,7 @@ const savePayment = async () => {
     newPayment.value.amount = balancePendiente.value
     newPayment.value.notes = ''
     toast({ title: 'Abono registrado', description: 'El pago parcial se ha guardado.' })
-  } catch (e) {
+  } catch {
     toast({ title: 'Error', description: 'No se pudo guardar el abono', variant: 'destructive' })
   }
 }
@@ -290,12 +290,12 @@ const confirmDeletion = async () => {
   try {
     if (deletion.kind === 'payment') {
       if (!selectedInvoice.value) return
-      await window.electronAPI.dbRun('DELETE FROM invoice_payments WHERE id = ?', [deletion.id])
+      await dbRun('DELETE FROM invoice_payments WHERE id = ?', [deletion.id])
       await loadPayments(selectedInvoice.value.id)
       await checkAndUpdateInvoiceStatus(selectedInvoice.value.id)
       toast({ title: 'Abono eliminado' })
     } else {
-      await window.electronAPI.dbRun('DELETE FROM invoices WHERE id = ?', [deletion.id])
+      await dbRun('DELETE FROM invoices WHERE id = ?', [deletion.id])
       await loadInvoices()
       toast({ title: 'Cuenta eliminada' })
     }
@@ -317,7 +317,8 @@ const handleNewInvoice = () => {
 
 onMounted(() => {
   loadInvoices()
-  loadProfile()
+  // Sin await: si falla, la descarga rápida usa plantilla 'default' y sin firma
+  profileStore.load().catch(() => undefined)
 })
 </script>
 
@@ -871,10 +872,10 @@ onMounted(() => {
                 </div>
                 <button
                   type="button"
-                  @click="deletePayment(payment.id)"
                   class="icon-button hover:bg-destructive/10 hover:text-destructive"
                   aria-label="Eliminar abono"
                   title="Eliminar abono"
+                  @click="deletePayment(payment.id)"
                 >
                   <Trash2 />
                 </button>

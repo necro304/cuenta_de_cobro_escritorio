@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { Printer, ArrowLeft, Download, FileWarning, RotateCcw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
@@ -12,9 +13,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast/use-toast'
-import { useProfile } from '@/composables/useProfile'
+import { useProfileStore } from '@/stores/profile'
+import { dbGet, dbQuery, exportInvoicePdf } from '@/api/backend'
+import { signalPrintReady } from '@/lib/printReady'
 import SignatureAskDialog from '@/components/SignatureAskDialog.vue'
-import type { Client, Invoice, InvoiceItem, InvoicePayment, BankAccount, TemplateId } from '@/types'
+import type { BankAccount, Client, Invoice, InvoiceItem, Profile, TemplateId } from '@/types'
 
 import DefaultTemplate from '@/components/templates/DefaultTemplate.vue'
 import SimpleTemplate from '@/components/templates/SimpleTemplate.vue'
@@ -24,15 +27,17 @@ const router = useRouter()
 const { toast } = useToast()
 const invoiceId = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
 
-// Modo PDF: la ventana oculta del main process carga esta vista con
-// ?pdf=1&template=X&signature=0|1 y avisa con notifyPrintReady() al terminar
+// Modo PDF: la ventana oculta que crea el backend (comando export_pdf) carga
+// esta vista con ?pdf=1&template=X&signature=0|1 y avisa con notifyPrintReady() al terminar
 const isPdfMode = route.query.pdf === '1'
 
-const { profile, loadProfile } = useProfile()
+const profileStore = useProfileStore()
+// Partial<Profile> para las plantillas: {} mientras carga
+const profile = computed<Partial<Profile>>(() => profileStore.profile ?? {})
+const { asksForSignature } = storeToRefs(profileStore)
 const client = ref<Partial<Client>>({})
 const invoice = ref<Partial<Invoice>>({})
 const items = ref<InvoiceItem[]>([])
-const payments = ref<InvoicePayment[]>([])
 const bankAccount = ref<BankAccount | null>(null)
 
 const selectedTemplate = ref<TemplateId>('default')
@@ -63,21 +68,18 @@ const loadData = async () => {
   isLoading.value = true
   loadError.value = false
   try {
-    const profileData = await loadProfile()
+    const profileData = await profileStore.load()
     if (profileData) {
       if (isPdfMode) {
         selectedTemplate.value = asTemplateId(route.query.template)
         includeSignature.value = route.query.signature === '1'
       } else {
-        selectedTemplate.value = asTemplateId(profileData.default_template)
-        includeSignature.value = profileData.signature_mode === 'auto' && !!profileData.signature
+        selectedTemplate.value = profileStore.defaultTemplate
+        includeSignature.value = profileStore.signsByDefault
       }
     }
 
-    const invoiceData = await window.electronAPI.dbGet<Invoice>(
-      'SELECT * FROM invoices WHERE id = ?',
-      [invoiceId],
-    )
+    const invoiceData = await dbGet<Invoice>('SELECT * FROM invoices WHERE id = ?', [invoiceId])
     if (!invoiceData) {
       loadError.value = true
       return
@@ -85,28 +87,20 @@ const loadData = async () => {
     invoice.value = invoiceData
 
     if (invoiceData.bank_account_id) {
-      const bankData = await window.electronAPI.dbGet<BankAccount>(
-        'SELECT * FROM bank_accounts WHERE id = ?',
-        [invoiceData.bank_account_id],
-      )
+      const bankData = await dbGet<BankAccount>('SELECT * FROM bank_accounts WHERE id = ?', [
+        invoiceData.bank_account_id,
+      ])
       if (bankData) bankAccount.value = bankData
     }
 
-    const clientData = await window.electronAPI.dbGet<Client>(
-      'SELECT * FROM clients WHERE id = ?',
-      [invoiceData.client_id],
-    )
+    const clientData = await dbGet<Client>('SELECT * FROM clients WHERE id = ?', [
+      invoiceData.client_id,
+    ])
     if (clientData) client.value = clientData
 
-    items.value = await window.electronAPI.dbQuery<InvoiceItem>(
-      'SELECT * FROM invoice_items WHERE invoice_id = ?',
-      [invoiceId],
-    )
-
-    payments.value = await window.electronAPI.dbQuery<InvoicePayment>(
-      'SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY date ASC',
-      [invoiceId],
-    )
+    items.value = await dbQuery<InvoiceItem>('SELECT * FROM invoice_items WHERE invoice_id = ?', [
+      invoiceId,
+    ])
   } catch {
     loadError.value = true
     if (!isPdfMode) {
@@ -118,18 +112,12 @@ const loadData = async () => {
     }
   } finally {
     isLoading.value = false
-    if (isPdfMode) {
-      await nextTick()
-      setTimeout(() => window.electronAPI.notifyPrintReady(), 100)
-    }
+    // Incluso con error: el backend no debe esperar hasta el timeout
+    if (isPdfMode) await signalPrintReady()
   }
 }
 
-const mustAskSignature = () =>
-  !isPdfMode &&
-  profile.value.signature_mode === 'ask' &&
-  !!profile.value.signature &&
-  !userChoseSignature.value
+const mustAskSignature = () => !isPdfMode && asksForSignature.value && !userChoseSignature.value
 
 const runAction = async (action: 'print' | 'pdf') => {
   if (action === 'print') {
@@ -140,15 +128,15 @@ const runAction = async (action: 'print' | 'pdf') => {
 
   isExporting.value = true
   try {
-    const result = await window.electronAPI.exportPdf({
+    const result = await exportInvoicePdf({
       invoiceId: Number(invoiceId),
       invoiceNumber: invoice.value.number ?? 0,
       template: selectedTemplate.value,
       includeSignature: includeSignature.value,
     })
-    if (result.success) {
+    if (result.status === 'done') {
       toast({ title: 'PDF descargado', description: result.message })
-    } else if (result.message !== 'Operación cancelada.') {
+    } else if (result.status === 'failed') {
       toast({ title: 'Error', description: result.message, variant: 'destructive' })
     }
   } finally {
@@ -196,7 +184,7 @@ onUnmounted(() => {
       v-if="!isPdfMode"
       class="print-controls sticky top-0 z-10 flex flex-col gap-3 border-b bg-card/95 px-4 py-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between no-print"
     >
-      <Button variant="ghost" @click="router.push('/invoices')" class="self-start gap-2">
+      <Button variant="ghost" class="self-start gap-2" @click="router.push('/invoices')">
         <ArrowLeft class="h-4 w-4" />
         Cuentas
       </Button>
@@ -235,14 +223,14 @@ onUnmounted(() => {
         <Button
           variant="outline"
           :disabled="isLoading || loadError || isExporting"
-          @click="requestAction('pdf')"
           class="gap-2"
+          @click="requestAction('pdf')"
         >
           <Download class="h-4 w-4" />
           {{ isExporting ? 'Generando...' : 'Descargar PDF' }}
         </Button>
 
-        <Button :disabled="isLoading || loadError" @click="requestAction('print')" class="gap-2">
+        <Button :disabled="isLoading || loadError" class="gap-2" @click="requestAction('print')">
           <Printer class="h-4 w-4" />
           Imprimir
         </Button>
@@ -275,7 +263,7 @@ onUnmounted(() => {
           :client="client"
           :invoice="invoice"
           :items="items"
-          :bankAccount="bankAccount"
+          :bank-account="bankAccount"
           :signature="signatureToRender"
         />
         <SimpleTemplate
@@ -284,7 +272,7 @@ onUnmounted(() => {
           :client="client"
           :invoice="invoice"
           :items="items"
-          :bankAccount="bankAccount"
+          :bank-account="bankAccount"
           :signature="signatureToRender"
         />
       </template>
@@ -299,7 +287,10 @@ onUnmounted(() => {
   .no-print {
     display: none !important;
   }
+  /* WebKit (macOS/Linux) recorta al alto visible si el contenedor scrollea */
   .print-container {
+    height: auto !important;
+    overflow: visible !important;
     background: transparent !important;
     min-height: auto !important;
   }

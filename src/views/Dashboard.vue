@@ -29,7 +29,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast/use-toast'
-import { useTheme } from '@/composables/useTheme'
+import { useThemeStore } from '@/stores/theme'
+import { dbQuery } from '@/api/backend'
 import { formatCurrency, formatDate } from '@/lib/format'
 import type { Invoice } from '@/types'
 
@@ -71,7 +72,7 @@ interface TopClientRow {
 
 const router = useRouter()
 const { toast } = useToast()
-const { resolvedTheme } = useTheme()
+const themeStore = useThemeStore()
 
 const readChartColors = () => {
   const styles = getComputedStyle(document.documentElement)
@@ -283,47 +284,47 @@ const loadDashboard = async () => {
       recent,
       leadingClients,
     ] = await Promise.all([
-      window.electronAPI.dbQuery<InvoiceSummaryRow>(`
+      dbQuery<InvoiceSummaryRow>(`
         SELECT COUNT(*) as count,
           COALESCE(SUM(total), 0) as total,
           COALESCE(AVG(total), 0) as average
         FROM invoices
       `),
-      window.electronAPI.dbQuery<CountRow>('SELECT COUNT(*) as count FROM clients'),
-      window.electronAPI.dbQuery<AmountRow>(
+      dbQuery<CountRow>('SELECT COUNT(*) as count FROM clients'),
+      dbQuery<AmountRow>(
         'SELECT COALESCE(SUM(amount), 0) as total FROM invoice_payments',
       ),
-      window.electronAPI.dbQuery<PeriodRow>(`
+      dbQuery<PeriodRow>(`
         SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total
         FROM invoices
         WHERE date >= date('now', 'localtime', 'start of month')
       `),
-      window.electronAPI.dbQuery<PeriodRow>(`
+      dbQuery<PeriodRow>(`
         SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total
         FROM invoices
         WHERE date >= date('now', 'localtime', 'start of month', '-1 month')
           AND date < date('now', 'localtime', 'start of month')
       `),
-      window.electronAPI.dbQuery<StatusRow>(`
+      dbQuery<StatusRow>(`
         SELECT status, COUNT(*) as count, COALESCE(SUM(total), 0) as total
         FROM invoices
         GROUP BY status
       `),
-      window.electronAPI.dbQuery<MonthlyRow>(`
+      dbQuery<MonthlyRow>(`
         SELECT strftime('%Y-%m', date) as month, COALESCE(SUM(total), 0) as total
         FROM invoices
         WHERE date >= date('now', 'localtime', 'start of month', '-5 months')
         GROUP BY month
         ORDER BY month
       `),
-      window.electronAPI.dbQuery<MonthlyRow>(`
+      dbQuery<MonthlyRow>(`
         SELECT strftime('%Y-%m', date) as month, COALESCE(SUM(amount), 0) as total
         FROM invoice_payments
         WHERE date >= date('now', 'localtime', 'start of month', '-5 months')
         GROUP BY month
         ORDER BY month
       `),
-      window.electronAPI.dbQuery<Invoice>(`
+      dbQuery<Invoice>(`
         SELECT i.*, c.name as client_name,
           COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0) as paid_amount,
           MAX(i.total - COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0), 0) as balance
@@ -332,7 +333,7 @@ const loadDashboard = async () => {
         ORDER BY i.date DESC, i.number DESC
         LIMIT 5
       `),
-      window.electronAPI.dbQuery<TopClientRow>(`
+      dbQuery<TopClientRow>(`
         SELECT c.id, c.name, COUNT(i.id) as invoice_count, COALESCE(SUM(i.total), 0) as total
         FROM clients c
         JOIN invoices i ON i.client_id = c.id
@@ -375,10 +376,13 @@ onMounted(() => {
   loadDashboard()
 })
 
-watch(resolvedTheme, async () => {
-  await nextTick()
-  chartColors.value = readChartColors()
-})
+watch(
+  () => themeStore.resolved,
+  async () => {
+    await nextTick()
+    chartColors.value = readChartColors()
+  },
+)
 </script>
 
 <template>

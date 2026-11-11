@@ -1,16 +1,16 @@
 import { config, flushPromises, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Profile from './Profile.vue'
 import type { Profile as ProfileData } from '@/types'
 
-const loadProfile = vi.hoisted(() => vi.fn())
 const recolorSignatureDataUrl = vi.hoisted(() => vi.fn())
-const dbRun = vi.fn()
-const dbQuery = vi.fn()
+const backend = vi.hoisted(() => ({ dbGet: vi.fn(), dbQuery: vi.fn(), dbRun: vi.fn() }))
 const toast = vi.fn()
 
-vi.mock('@/composables/useProfile', () => ({
-  useProfile: () => ({ loadProfile }),
+vi.mock('@/api/backend', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/backend')>()),
+  ...backend,
 }))
 
 vi.mock('@/lib/signature', async (importOriginal) => ({
@@ -26,11 +26,11 @@ config.global.renderStubDefaultSlot = true
 
 describe('Profile', () => {
   beforeEach(() => {
-    dbRun.mockReset().mockResolvedValue({ changes: 1, lastInsertRowid: 0 })
-    dbQuery.mockReset().mockResolvedValue([])
+    backend.dbRun.mockReset().mockResolvedValue({ changes: 1, lastInsertRowid: 0 })
+    backend.dbQuery.mockReset().mockResolvedValue([])
     toast.mockReset()
     recolorSignatureDataUrl.mockReset().mockResolvedValue('data:image/png;base64,recolored')
-    loadProfile.mockReset().mockResolvedValue({
+    backend.dbGet.mockReset().mockResolvedValue({
       id: 1,
       name: 'Persona de prueba',
       document_id: '1234',
@@ -41,16 +41,12 @@ describe('Profile', () => {
       signature: 'data:image/png;base64,original',
       signature_color: '#245f46',
     } satisfies ProfileData)
-
-    Object.defineProperty(window, 'electronAPI', {
-      configurable: true,
-      value: { dbRun, dbQuery },
-    })
   })
 
   it('recolorea y persiste una firma existente al elegir otro tono', async () => {
     const wrapper = mount(Profile, {
       global: {
+        plugins: [createPinia()],
         stubs: {
           PageHeader: true,
           Dialog: true,
@@ -78,7 +74,7 @@ describe('Profile', () => {
       'data:image/png;base64,original',
       '#1e3a8a',
     )
-    expect(dbRun).toHaveBeenCalledWith(
+    expect(backend.dbRun).toHaveBeenCalledWith(
       'UPDATE profile SET signature = ?, signature_color = ? WHERE id = 1',
       ['data:image/png;base64,recolored', '#1e3a8a'],
     )

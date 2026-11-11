@@ -25,7 +25,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast/use-toast'
-import { useTheme } from '@/composables/useTheme'
+import { useThemeStore } from '@/stores/theme'
+import { dbGet, dbQuery, exportClientReportPdf } from '@/api/backend'
 import { formatCurrency, formatDate } from '@/lib/format'
 import type { Client, Invoice, InvoicePayment } from '@/types'
 
@@ -43,7 +44,7 @@ interface ClientPayment extends InvoicePayment {
 const route = useRoute()
 const router = useRouter()
 const { toast } = useToast()
-const { resolvedTheme } = useTheme()
+const themeStore = useThemeStore()
 
 const client = ref<Client | null>(null)
 const invoices = ref<Invoice[]>([])
@@ -258,8 +259,8 @@ const loadClient = async () => {
   try {
     const [clientRecord, clientInvoices, issuedByMonth, collectedByMonth, payments] =
       await Promise.all([
-        window.electronAPI.dbGet<Client>('SELECT * FROM clients WHERE id = ?', [clientId]),
-        window.electronAPI.dbQuery<Invoice>(
+        dbGet<Client>('SELECT * FROM clients WHERE id = ?', [clientId]),
+        dbQuery<Invoice>(
           `SELECT i.*,
             COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0) as paid_amount,
             MAX(i.total - COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0), 0) as balance
@@ -268,7 +269,7 @@ const loadClient = async () => {
           ORDER BY i.date DESC, i.number DESC`,
           [clientId],
         ),
-        window.electronAPI.dbQuery<MonthlyAmount>(
+        dbQuery<MonthlyAmount>(
           `SELECT strftime('%Y-%m', date) as month, COALESCE(SUM(total), 0) as total
           FROM invoices
           WHERE client_id = ?
@@ -277,7 +278,7 @@ const loadClient = async () => {
           ORDER BY month`,
           [clientId],
         ),
-        window.electronAPI.dbQuery<MonthlyAmount>(
+        dbQuery<MonthlyAmount>(
           `SELECT strftime('%Y-%m', p.date) as month, COALESCE(SUM(p.amount), 0) as total
           FROM invoice_payments p
           JOIN invoices i ON i.id = p.invoice_id
@@ -287,7 +288,7 @@ const loadClient = async () => {
           ORDER BY month`,
           [clientId],
         ),
-        window.electronAPI.dbQuery<ClientPayment>(
+        dbQuery<ClientPayment>(
           `SELECT p.*, i.number as invoice_number
           FROM invoice_payments p
           JOIN invoices i ON i.id = p.invoice_id
@@ -324,13 +325,13 @@ const exportClientReport = async () => {
   if (!client.value) return
   isExportingReport.value = true
   try {
-    const result = await window.electronAPI.exportClientReportPdf({
+    const result = await exportClientReportPdf({
       clientId: client.value.id,
       clientName: client.value.name,
     })
-    if (result.success) {
+    if (result.status === 'done') {
       toast({ title: 'Informe descargado', description: result.message })
-    } else if (result.message !== 'Operación cancelada.') {
+    } else if (result.status === 'failed') {
       toast({
         title: 'No se pudo generar el informe',
         description: result.message,
@@ -347,10 +348,13 @@ onMounted(() => {
   loadClient()
 })
 
-watch(resolvedTheme, async () => {
-  await nextTick()
-  chartColors.value = readChartColors()
-})
+watch(
+  () => themeStore.resolved,
+  async () => {
+    await nextTick()
+    chartColors.value = readChartColors()
+  },
+)
 </script>
 
 <template>

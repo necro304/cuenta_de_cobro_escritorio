@@ -1,11 +1,20 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { ref } from 'vue'
+import { createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ClientDetail from './ClientDetail.vue'
 
 const push = vi.fn()
 const toast = vi.fn()
-const exportClientReportPdf = vi.fn()
+const backend = vi.hoisted(() => ({
+  dbGet: vi.fn(),
+  dbQuery: vi.fn(),
+  exportClientReportPdf: vi.fn(),
+}))
+
+vi.mock('@/api/backend', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/backend')>()),
+  ...backend,
+}))
 
 vi.mock('vue-router', () => ({
   RouterLink: {
@@ -24,18 +33,17 @@ vi.mock('@/components/ui/toast/use-toast', () => ({
   useToast: () => ({ toast }),
 }))
 
-vi.mock('@/composables/useTheme', () => ({
-  useTheme: () => ({ resolvedTheme: ref('light') }),
-}))
+const mountView = () => mount(ClientDetail, { global: { plugins: [createPinia()] } })
 
 describe('ClientDetail', () => {
   beforeEach(() => {
     push.mockReset()
     toast.mockReset()
-    exportClientReportPdf.mockReset()
-    exportClientReportPdf.mockResolvedValue({ success: true, message: '/tmp/informe.pdf' })
+    backend.exportClientReportPdf
+      .mockReset()
+      .mockResolvedValue({ status: 'done', message: '/tmp/informe.pdf' })
 
-    const dbGet = vi.fn().mockResolvedValue({
+    backend.dbGet.mockReset().mockResolvedValue({
       id: 7,
       name: 'Fundación Horizonte',
       document_id: '901234567-8',
@@ -45,7 +53,7 @@ describe('ClientDetail', () => {
       email: 'pagos@horizonte.co',
       created_at: '2026-01-10 10:00:00',
     })
-    const dbQuery = vi.fn().mockImplementation((sql: string) => {
+    backend.dbQuery.mockReset().mockImplementation((sql: string) => {
       if (sql.includes('SELECT i.*')) {
         return Promise.resolve([
           {
@@ -86,15 +94,10 @@ describe('ClientDetail', () => {
       }
       return Promise.resolve([])
     })
-
-    Object.defineProperty(window, 'electronAPI', {
-      configurable: true,
-      value: { dbGet, dbQuery, exportClientReportPdf },
-    })
   })
 
   it('presenta la cartera y el historial financiero del cliente', async () => {
-    const wrapper = mount(ClientDetail)
+    const wrapper = mountView()
     await flushPromises()
 
     expect(wrapper.text()).toContain('Fundación Horizonte')
@@ -107,7 +110,7 @@ describe('ClientDetail', () => {
   })
 
   it('abre una cuenta nueva con el cliente preseleccionado', async () => {
-    const wrapper = mount(ClientDetail)
+    const wrapper = mountView()
     await flushPromises()
 
     const newInvoiceButton = wrapper
@@ -119,7 +122,7 @@ describe('ClientDetail', () => {
   })
 
   it('solicita el informe PDF del cliente actual', async () => {
-    const wrapper = mount(ClientDetail)
+    const wrapper = mountView()
     await flushPromises()
 
     const reportButton = wrapper
@@ -128,7 +131,7 @@ describe('ClientDetail', () => {
     await reportButton?.trigger('click')
     await flushPromises()
 
-    expect(exportClientReportPdf).toHaveBeenCalledWith({
+    expect(backend.exportClientReportPdf).toHaveBeenCalledWith({
       clientId: 7,
       clientName: 'Fundación Horizonte',
     })

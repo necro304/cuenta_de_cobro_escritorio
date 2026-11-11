@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import {
   Eye,
   FileText,
@@ -26,7 +27,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/toast/use-toast'
-import { useClients } from '@/composables/useClients'
+import { useClientsStore } from '@/stores/clients'
+import { dbQuery } from '@/api/backend'
 import type { Client } from '@/types'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { formatCurrency } from '@/lib/format'
@@ -39,7 +41,8 @@ interface ClientMetric {
 
 const { toast } = useToast()
 const router = useRouter()
-const { clients, loadClients: fetchClients } = useClients()
+const clientsStore = useClientsStore()
+const { clients } = storeToRefs(clientsStore)
 const isLoading = ref(true)
 const loadError = ref(false)
 const isSaving = ref(false)
@@ -60,22 +63,23 @@ const newClient = ref({
   email: '',
 })
 
+const loadMetrics = async () => {
+  const metrics = await dbQuery<ClientMetric>(`
+    SELECT c.id,
+      COUNT(i.id) as invoice_count,
+      COALESCE(SUM(i.total), 0) as total_issued
+    FROM clients c
+    LEFT JOIN invoices i ON i.client_id = c.id
+    GROUP BY c.id
+  `)
+  clientMetrics.value = Object.fromEntries(metrics.map((metric) => [metric.id, metric]))
+}
+
 const loadClients = async () => {
   isLoading.value = true
   loadError.value = false
   try {
-    const [, metrics] = await Promise.all([
-      fetchClients(),
-      window.electronAPI.dbQuery<ClientMetric>(`
-        SELECT c.id,
-          COUNT(i.id) as invoice_count,
-          COALESCE(SUM(i.total), 0) as total_issued
-        FROM clients c
-        LEFT JOIN invoices i ON i.client_id = c.id
-        GROUP BY c.id
-      `),
-    ])
-    clientMetrics.value = Object.fromEntries(metrics.map((metric) => [metric.id, metric]))
+    await Promise.all([clientsStore.load(), loadMetrics()])
   } catch {
     loadError.value = true
     toast({
@@ -156,9 +160,9 @@ const confirmDeleteClient = async () => {
 
   isDeleting.value = true
   try {
-    await window.electronAPI.dbRun('DELETE FROM clients WHERE id = ?', [client.id])
+    await clientsStore.remove(client.id)
     toast({ title: 'Cliente eliminado', description: 'El registro se eliminó correctamente.' })
-    await loadClients()
+    await loadMetrics()
     pendingDeleteClient.value = null
   } catch {
     toast({
@@ -193,42 +197,22 @@ const saveClient = async () => {
   }
   isSaving.value = true
   try {
+    const input = { ...newClient.value }
     if (isEditing.value && editingId.value) {
-      await window.electronAPI.dbRun(
-        'UPDATE clients SET name = ?, document_id = ?, address = ?, city = ?, phone = ?, email = ? WHERE id = ?',
-        [
-          newClient.value.name,
-          newClient.value.document_id,
-          newClient.value.address,
-          newClient.value.city,
-          newClient.value.phone,
-          newClient.value.email,
-          editingId.value,
-        ],
-      )
+      await clientsStore.update(editingId.value, input)
       toast({
         title: 'Cliente actualizado',
         description: 'Los cambios se guardaron correctamente.',
       })
     } else {
-      await window.electronAPI.dbRun(
-        'INSERT INTO clients (name, document_id, address, city, phone, email) VALUES (?, ?, ?, ?, ?, ?)',
-        [
-          newClient.value.name,
-          newClient.value.document_id,
-          newClient.value.address,
-          newClient.value.city,
-          newClient.value.phone,
-          newClient.value.email,
-        ],
-      )
+      await clientsStore.create(input)
       toast({
         title: 'Cliente registrado',
         description: 'El cliente ya está disponible para tus cuentas.',
       })
     }
     closeDialog()
-    await loadClients()
+    await loadMetrics()
   } catch {
     toast({
       title: 'No se pudo guardar el cliente',

@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast/use-toast'
 import { calculatePreviewTotal, formatMoneyForDisplay } from '@/lib/cuentaDeCobroMoney'
+import { cuentaDeCobro } from '@/api/backend'
 import type {
   ClienteOption,
   CuentaBancariaOption,
@@ -145,9 +146,7 @@ const loadData = async () => {
     isEditing.value = id !== null
     invoiceIdToEdit.value = id
 
-    const result = await window.electronAPI.cuentaDeCobro.open(
-      id === null ? { kind: 'create' } : { kind: 'edit', id },
-    )
+    const result = await cuentaDeCobro.open(id === null ? { kind: 'create' } : { kind: 'edit', id })
 
     if (!result.ok) {
       loadError.value = true
@@ -223,7 +222,7 @@ const saveInvoice = async () => {
 
   isSaving.value = true
   try {
-    const result = await window.electronAPI.cuentaDeCobro.save(
+    const result = await cuentaDeCobro.save(
       isEditing.value && invoiceIdToEdit.value
         ? { kind: 'edit', id: invoiceIdToEdit.value, cuenta: copyDraft() }
         : { kind: 'create', cuenta: copyDraft() },
@@ -423,7 +422,7 @@ onMounted(loadData)
                 Describe cada servicio o producto cobrado.
               </p>
             </div>
-            <Button variant="outline" size="sm" @click="addItem" class="gap-1">
+            <Button variant="outline" size="sm" class="gap-1" @click="addItem">
               <Plus class="h-4 w-4" /> Agregar
             </Button>
           </CardHeader>
@@ -467,10 +466,10 @@ onMounted(loadData)
                 <Button
                   variant="ghost"
                   size="icon"
-                  @click="removeItem(index)"
                   :disabled="invoice.concepts.length === 1"
                   aria-label="Eliminar concepto"
                   title="Eliminar concepto"
+                  @click="removeItem(index)"
                 >
                   <Trash2 class="h-4 w-4 text-destructive" />
                 </Button>
