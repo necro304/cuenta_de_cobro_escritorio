@@ -42,7 +42,7 @@ cargo test --locked
 ```
 
 - `generate_context!()` exige que exista `dist/index.html` para compilar el crate: corre `npm run build:web` una vez (CI crea un relleno).
-- Mientras `plugins.updater.pubkey` de `src-tauri/tauri.conf.json` tenga el marcador `REEMPLAZAR…`, `npm run build` y el workflow de release fallan a propósito. `build:unsigned` funciona siempre.
+- Llave del updater (ID `5A2E193384F7E5B6`): la privada está en `~/.tauri/cuentacobro-updater.key` del Mac del mantenedor, su contraseña en el llavero de macOS (servicio `cuentacobro-updater-key-password`) y ambas en los secretos `TAURI_SIGNING_PRIVATE_KEY`/`_PASSWORD` del repo. `plugins.updater.pubkey` de `src-tauri/tauri.conf.json` es su pareja: no la cambies, porque las instalaciones 2.x solo aceptan actualizaciones firmadas con esa llave. Build firmado en local: `TAURI_SIGNING_PRIVATE_KEY=~/.tauri/cuentacobro-updater.key TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(security find-generic-password -s cuentacobro-updater-key-password -w)" npm run build`. `build:unsigned` no la necesita.
 - Versión: la fuente única es `package.json` (`tauri.conf.json` usa `"version": "../package.json"`). Mantén `version` de `src-tauri/Cargo.toml` igual a mano y, tras cambiarla, actualiza `src-tauri/Cargo.lock` con `cargo update --workspace --offline` (dentro de `src-tauri/`) y súbelo en el mismo commit: CI usa `--locked` y falla con un lock desfasado. `npm version <x.y.z> --no-git-tag-version` sube a la vez `package.json` y `package-lock.json`.
 
 **CI** (`.github/workflows/ci.yml`; push a `main`/`dev`, PRs a `main` y a mano):

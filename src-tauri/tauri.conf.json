@@ -129,7 +129,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "REEMPLAZAR_CON_EL_CONTENIDO_DE_~/.tauri/cuentacobro-updater.key.pub",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVBMkUxOTMzODRGN0U1QjYKUldTMjVmZUVNeGt1V29vaytDTGNzY1pZaGJlaXFtR2phYVV6eGZiNmZEdGtndzZsYWJPWWJXb0kK",
       "endpoints": [
         "https://github.com/necro304/cuenta_de_cobro_escritorio/releases/latest/download/latest.json"
       ],
