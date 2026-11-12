@@ -10,12 +10,13 @@ import {
   DatabaseBackup,
   DatabaseZap,
   AlertTriangle,
+  Terminal,
 } from '@lucide/vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast/use-toast'
 import { getErrorMessage } from '@/lib/utils'
-import { backupDatabase, dbRun, restoreDatabase } from '@/api/backend'
+import { backupDatabase, dbRun, installCli, restoreDatabase } from '@/api/backend'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { useUpdaterStore } from '@/stores/updater'
 import PageHeader from '@/components/PageHeader.vue'
@@ -27,7 +28,7 @@ const { toast } = useToast()
 
 const themeStore = useThemeStore()
 const updater = useUpdaterStore()
-const activeOperation = ref<'updates' | 'backup' | 'restore' | 'reset' | null>(null)
+const activeOperation = ref<'updates' | 'backup' | 'restore' | 'reset' | 'cli' | null>(null)
 const pendingConfirmation = ref<'restore' | 'reset' | null>(null)
 
 const themeOptions: { value: ThemeMode; label: string; icon: Component }[] = [
@@ -73,6 +74,24 @@ const handleBackup = async () => {
       toast({ title: 'Respaldo exitoso', description: result.message })
     } else if (result.status === 'failed') {
       toast({ title: 'Error', description: result.message, variant: 'destructive' })
+    }
+  } finally {
+    activeOperation.value = null
+  }
+}
+
+const handleInstallCli = async () => {
+  activeOperation.value = 'cli'
+  try {
+    const result = await installCli()
+    if (result.status === 'done') {
+      toast({ title: 'CLI instalada', description: result.message })
+    } else if (result.status === 'failed') {
+      toast({
+        title: 'No se pudo instalar la CLI',
+        description: result.message,
+        variant: 'destructive',
+      })
     }
   } finally {
     activeOperation.value = null
@@ -257,6 +276,22 @@ const confirmOperation = async () => {
               >
             </button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card class="lg:col-span-12">
+        <CardHeader>
+          <CardTitle>CLI para agentes</CardTitle>
+          <CardDescription
+            >Permite que un agente de IA, o tú desde la terminal, consulte y modifique tus datos con
+            el comando <code class="font-mono">cuentacobro-cli</code>.</CardDescription
+          >
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" :disabled="activeOperation !== null" @click="handleInstallCli">
+            <Terminal />
+            {{ activeOperation === 'cli' ? 'Instalando...' : 'Instalar en el PATH' }}
+          </Button>
         </CardContent>
       </Card>
 

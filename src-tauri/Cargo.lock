@@ -682,6 +682,7 @@ name = "cuenta-cobro"
 version = "2.0.0"
 dependencies = [
  "chrono",
+ "dirs",
  "gtk",
  "log",
  "num-bigint",
@@ -708,6 +709,7 @@ dependencies = [
  "webkit2gtk",
  "webview2-com",
  "windows",
+ "winreg",
 ]
 
 [[package]]

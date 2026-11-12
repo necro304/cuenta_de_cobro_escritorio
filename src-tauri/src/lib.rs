@@ -2,6 +2,7 @@
 //!
 //! Decisiones de la migración desde Electron: docs/adr/0001-migracion-a-tauri.md.
 
+pub mod cli_install;
 mod commands;
 pub mod cuenta_de_cobro;
 pub mod db;
@@ -180,6 +181,7 @@ pub fn run() {
             system::export_client_report_pdf,
             system::print_ready,
             legacy_migration_notice,
+            cli_install::install_cli,
         ])
         .build(tauri::generate_context!())
         .expect("error al iniciar CuentaCobro")

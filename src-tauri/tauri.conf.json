@@ -8,7 +8,8 @@
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist",
     "beforeDevCommand": "npm run dev:web",
-    "beforeBuildCommand": "npm run build:web"
+    "beforeBuildCommand": "npm run build:web",
+    "beforeBundleCommand": "node scripts/lipo-cli.mjs"
   },
   "app": {
     "windows": [

@@ -9,6 +9,7 @@ import type { ActionOutcome } from '@/api/backend'
 const backend = vi.hoisted(() => ({
   backupDatabase: vi.fn(),
   restoreDatabase: vi.fn(),
+  installCli: vi.fn(),
   dbRun: vi.fn(),
 }))
 const relaunch = vi.hoisted(() => vi.fn())
@@ -105,6 +106,32 @@ describe('Settings', () => {
       title: 'Respaldo exitoso',
       description: 'Respaldo guardado exitosamente.',
     })
+  })
+
+  it('CLI: el éxito muestra el mensaje de Rust y un fallo, un toast destructive', async () => {
+    backend.installCli.mockResolvedValueOnce({
+      status: 'done',
+      message: 'Abre una terminal nueva y ejecuta: cuentacobro-cli help',
+    } satisfies ActionOutcome)
+    const wrapper = await mountSettings()
+
+    await clickButton(wrapper, 'Instalar en el PATH')
+    expect(toast).toHaveBeenLastCalledWith({
+      title: 'CLI instalada',
+      description: 'Abre una terminal nueva y ejecuta: cuentacobro-cli help',
+    })
+
+    backend.installCli.mockResolvedValueOnce({
+      status: 'failed',
+      message: 'Con el AppImage la CLI no se puede instalar.',
+    } satisfies ActionOutcome)
+    await clickButton(wrapper, 'Instalar en el PATH')
+    expect(toast).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        description: 'Con el AppImage la CLI no se puede instalar.',
+        variant: 'destructive',
+      }),
+    )
   })
 
   it('restaurar: cancelar el diálogo no muestra toast ni reinicia', async () => {

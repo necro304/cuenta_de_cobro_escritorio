@@ -10,6 +10,9 @@ edition = "2024"
 # Máximo rust-version declarado en el grafo de dependencias (tauri 2.12.x).
 rust-version = "1.90"
 publish = false
+# Hay dos binarios (la app y src/bin/cuentacobro-cli.rs, que va en los instaladores): `cargo run`,
+# que usa tauri dev, arranca la app.
+default-run = "cuenta-cobro"
 
 [lib]
 # Los tests de integración (tests/*.rs) importan `cuentacobro_lib`.
@@ -37,6 +40,8 @@ ryu-js = "1.0.3"
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 unicode-normalization = "0.1.26"
 tokio = { version = "1.54.1", features = ["time", "sync"] }
+# Solo para la CLI: la misma carpeta de datos que app_data_dir() de Tauri.
+dirs = "7.0.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.5"
@@ -46,7 +51,9 @@ objc2-web-kit = { version = "0.3.2", default-features = false, features = ["std"
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39.1"
-windows = "0.62.2"
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+# PATH del usuario para la CLI (src/cli_install.rs).
+winreg = "0.56.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = { version = "2.0.2", features = ["v2_38"] }

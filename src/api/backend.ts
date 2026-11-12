@@ -30,7 +30,7 @@ export interface RunResult {
 }
 
 /**
- * Resultado de una acción con diálogo nativo (respaldo, restauración, PDF), ya
+ * Resultado de una acción con diálogo nativo (respaldo, restauración, PDF, instalar la CLI), ya
  * interpretado para las vistas. `done.message` es texto para el usuario (en PDF:
  * la ruta del archivo guardado).
  */
@@ -72,6 +72,7 @@ export type BackendCommand =
   | 'export_client_report_pdf'
   | 'print_ready'
   | 'legacy_migration_notice'
+  | 'install_cli'
 
 /** Aviso único tras importar la BD de la versión Electron (`legacy-migration.json`). */
 export interface LegacyMigrationNotice {
@@ -195,6 +196,11 @@ export const notifyPrintReady = async (): Promise<void> => {
     // El timeout del comando de exportación informa el fallo al usuario.
   }
 }
+
+// --- CLI para agentes ----------------------------------------------------------
+
+/** Pone `cuentacobro-cli` en el PATH. En macOS pide la contraseña: cerrarla da `cancelled`. */
+export const installCli = (): Promise<ActionOutcome> => runAction('install_cli')
 
 // --- Migración desde Electron -----------------------------------------------
 

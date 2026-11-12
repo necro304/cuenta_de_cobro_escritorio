@@ -46,9 +46,9 @@ export default defineConfig(
     },
   },
 
-  // Archivos de configuración ejecutados por Node (vite, vitest, eslint, prettier).
+  // Archivos ejecutados por Node: configuración (vite, vitest, eslint, prettier) y scripts/.
   {
-    files: ['*.config.{js,ts,mjs,cjs}'],
+    files: ['*.config.{js,ts,mjs,cjs}', 'scripts/**/*.mjs'],
     languageOptions: {
       globals: { ...globals.node },
     },

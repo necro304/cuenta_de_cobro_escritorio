@@ -11,6 +11,7 @@ import {
   dbRun,
   exportClientReportPdf,
   exportInvoicePdf,
+  installCli,
   legacyMigrationNotice,
   notifyPrintReady,
   restoreDatabase,
@@ -166,6 +167,13 @@ describe('backend (contrato IPC)', () => {
     mockBackend(() => Promise.reject('disco lleno'))
 
     await expect(backupDatabase()).resolves.toEqual({ status: 'failed', message: 'disco lleno' })
+  })
+
+  it('installCli invoca install_cli sin argumentos y respeta la cancelación', async () => {
+    mockBackend(() => ({ success: false, message: CANCELLED_MESSAGE }))
+
+    await expect(installCli()).resolves.toEqual({ status: 'cancelled' })
+    expect(calls).toEqual([{ cmd: 'install_cli', payload: {} }])
   })
 
   it('notifyPrintReady invoca print_ready sin argumentos y no rechaza', async () => {
