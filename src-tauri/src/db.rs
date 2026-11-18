@@ -108,6 +108,18 @@ pub fn open_connection(path: &std::path::Path) -> rusqlite::Result<Connection> {
     Ok(conn)
 }
 
+pub fn clear_billing_data(conn: &mut Connection) -> rusqlite::Result<()> {
+    let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+    // El borrado explícito también retira posibles registros huérfanos de bases antiguas.
+    tx.execute_batch(
+        "DELETE FROM invoice_payments;
+         DELETE FROM invoice_items;
+         DELETE FROM invoices;
+         DELETE FROM clients;",
+    )?;
+    tx.commit()
+}
+
 pub fn init_db(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(SCHEMA_SQL)?;
     for sql in MIGRATIONS {

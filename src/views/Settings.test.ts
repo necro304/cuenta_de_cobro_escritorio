@@ -10,7 +10,7 @@ const backend = vi.hoisted(() => ({
   backupDatabase: vi.fn(),
   restoreDatabase: vi.fn(),
   installCli: vi.fn(),
-  dbRun: vi.fn(),
+  clearBillingData: vi.fn(),
 }))
 const relaunch = vi.hoisted(() => vi.fn())
 const toast = vi.fn()
@@ -63,7 +63,7 @@ describe('Settings', () => {
     relaunch.mockReset().mockResolvedValue(undefined)
     backend.backupDatabase.mockReset()
     backend.restoreDatabase.mockReset()
-    backend.dbRun.mockReset().mockResolvedValue({ changes: 0, lastInsertRowid: 0 })
+    backend.clearBillingData.mockReset().mockResolvedValue(undefined)
   })
 
   it('respaldo: cancelar el diálogo no muestra ningún toast', async () => {
@@ -174,5 +174,17 @@ describe('Settings', () => {
     await restore(wrapper)
 
     expect(relaunch).toHaveBeenCalledTimes(1)
+  })
+
+  it('borra los datos de cobro únicamente al confirmar y comunica un fallo del backend', async () => {
+    backend.clearBillingData.mockRejectedValue(new Error('disco lleno'))
+    const wrapper = await mountSettings()
+    await clickButton(wrapper, 'Eliminar todos los datos')
+    expect(backend.clearBillingData).not.toHaveBeenCalled()
+
+    wrapper.findComponent(ConfirmDialog).vm.$emit('confirm')
+    await flushPromises()
+    expect(backend.clearBillingData).toHaveBeenCalledOnce()
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }))
   })
 })

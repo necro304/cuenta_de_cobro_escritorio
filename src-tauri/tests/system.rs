@@ -44,3 +44,44 @@ fn mensaje_de_cancelacion_es_contrato() {
         "Operación cancelada."
     );
 }
+
+#[test]
+fn el_borrado_de_datos_es_atomico_y_conserva_el_perfil_y_las_cuentas_bancarias() {
+    use cuentacobro_lib::db::{clear_billing_data, init_db};
+    let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+    init_db(&conn).unwrap();
+    conn.execute_batch(
+        "PRAGMA foreign_keys=ON;
+         INSERT INTO clients (id, name) VALUES (1, 'Cliente');
+         INSERT INTO bank_accounts (bank, account_type, account_number) VALUES ('Banco', 'Ahorros', '123');
+         INSERT INTO invoices (id, number, date, client_id, total) VALUES (1, 1, '2026-11-18', 1, 20);
+         INSERT INTO invoice_items (invoice_id, description, quantity, price) VALUES (1, 'Servicio', 1, 20);
+         INSERT INTO invoice_payments (invoice_id, date, amount) VALUES (1, '2026-11-18', 10);
+         CREATE TRIGGER conservar_cliente BEFORE DELETE ON clients
+           BEGIN SELECT RAISE(ABORT, 'cliente en uso'); END;",
+    )
+    .unwrap();
+    let counts = |conn: &rusqlite::Connection| {
+        [
+            "clients",
+            "invoices",
+            "invoice_items",
+            "invoice_payments",
+            "profile",
+            "bank_accounts",
+        ]
+        .map(|table| {
+            conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get::<_, i64>(0)
+            })
+            .unwrap()
+        })
+    };
+    assert!(clear_billing_data(&mut conn).is_err());
+    assert_eq!(counts(&conn), [1, 1, 1, 1, 1, 1]);
+
+    conn.execute_batch("DROP TRIGGER conservar_cliente")
+        .unwrap();
+    clear_billing_data(&mut conn).unwrap();
+    assert_eq!(counts(&conn), [0, 0, 0, 0, 1, 1]);
+}

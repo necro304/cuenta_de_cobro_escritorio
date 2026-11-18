@@ -68,6 +68,7 @@ export type BackendCommand =
   | 'cuenta_de_cobro_save'
   | 'db_backup'
   | 'db_restore'
+  | 'clear_billing_data'
   | 'export_pdf'
   | 'export_client_report_pdf'
   | 'print_ready'
@@ -166,6 +167,8 @@ export const cuentaDeCobro: CuentaDeCobroModule = {
 // --- Respaldo / restauración -------------------------------------------------
 
 export const backupDatabase = (): Promise<ActionOutcome> => runAction('db_backup')
+
+export const clearBillingData = (): Promise<void> => call<void>('clear_billing_data')
 
 /**
  * En éxito Rust reinicia la app (`app.restart()`), así que la promesa no llega a

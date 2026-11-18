@@ -173,6 +173,7 @@ pub fn run() {
             commands::db_query,
             commands::db_get,
             commands::db_run,
+            commands::clear_billing_data,
             commands::cuenta_de_cobro_open,
             commands::cuenta_de_cobro_save,
             system::db_backup,

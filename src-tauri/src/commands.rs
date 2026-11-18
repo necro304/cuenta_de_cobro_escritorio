@@ -4,6 +4,14 @@ use tauri::State;
 
 pub const ERR_DB_CLOSED: &str = "The database connection is not open";
 
+#[tauri::command]
+pub async fn clear_billing_data(db: State<'_, Database>) -> Result<(), String> {
+    with_conn(&db, |conn| {
+        crate::db::clear_billing_data(conn).map_err(generic::sqlite_message)
+    })
+    .await
+}
+
 async fn with_conn<T: Send + 'static>(
     db: &Database,
     f: impl FnOnce(&mut rusqlite::Connection) -> Result<T, String> + Send + 'static,

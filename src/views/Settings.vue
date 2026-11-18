@@ -16,7 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast/use-toast'
 import { getErrorMessage } from '@/lib/utils'
-import { backupDatabase, dbRun, installCli, restoreDatabase } from '@/api/backend'
+import { backupDatabase, clearBillingData, installCli, restoreDatabase } from '@/api/backend'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { useUpdaterStore } from '@/stores/updater'
 import PageHeader from '@/components/PageHeader.vue'
@@ -131,19 +131,16 @@ const resetDatabase = () => {
 const clearDatabase = async () => {
   activeOperation.value = 'reset'
   try {
-    // invoice_payments e invoice_items caen por ON DELETE CASCADE (FK activas)
-    await dbRun('DELETE FROM invoice_items')
-    await dbRun('DELETE FROM invoices')
-    await dbRun('DELETE FROM clients')
+    await clearBillingData()
     toast({
       title: 'Datos eliminados',
-      description: 'Todos los datos han sido borrados correctamente.',
+      description: 'Se eliminaron los clientes, las cuentas de cobro, sus conceptos y abonos.',
     })
     router.push('/')
-  } catch {
+  } catch (error) {
     toast({
       title: 'Error',
-      description: 'No se pudo completar la operación',
+      description: getErrorMessage(error),
       variant: 'destructive',
     })
   } finally {
@@ -153,7 +150,7 @@ const clearDatabase = async () => {
 
 const confirmOperation = async () => {
   const operation = pendingConfirmation.value
-  if (!operation) return
+  if (!operation || activeOperation.value) return
 
   if (operation === 'restore') await restoreDatabaseAndRelaunch()
   else await clearDatabase()
