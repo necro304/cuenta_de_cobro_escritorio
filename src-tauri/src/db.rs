@@ -84,11 +84,8 @@ pub const MIGRATIONS: &[&str] = &[
 /// Equivale a `new Database(path)` de better-sqlite3 12: FK activas, busy timeout 5 s y comillas
 /// dobles solo como identificadores (SQLITE_DQS=0).
 ///
-/// Además fija journal_mode=DELETE: el respaldo es una copia del archivo principal, así que la BD
-/// nunca debe quedar en WAL (p. ej. tras restaurar un archivo editado con otra herramienta). Si ya
-/// está en DELETE, no hace nada; si estaba en WAL, consolida el `-wal` y vuelve a DELETE. Nunca es
-/// fatal: si otro proceso la tiene abierta en WAL y SQLite no puede cambiar el modo, se registra y
-/// se sigue con la conexión abierta.
+/// Conserva el modo DELETE utilizado por Electron cuando SQLite puede cambiarlo.
+/// El respaldo obtiene una instantánea consistente también si otra conexión mantiene el WAL.
 pub fn open_connection(path: &std::path::Path) -> rusqlite::Result<Connection> {
     use rusqlite::config::DbConfig;
     let conn = Connection::open(path)?;
@@ -101,7 +98,7 @@ pub fn open_connection(path: &std::path::Path) -> rusqlite::Result<Connection> {
     }) {
         Ok(mode) if mode.eq_ignore_ascii_case("delete") => {}
         Ok(mode) => {
-            log::warn!("journal_mode quedó en {mode}: el respaldo podría no incluir el -wal")
+            log::warn!("journal_mode quedó en {mode}")
         }
         Err(e) => log::warn!("No se pudo fijar journal_mode=DELETE: {e}"),
     }

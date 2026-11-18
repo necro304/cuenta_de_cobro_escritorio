@@ -31,7 +31,8 @@ tauri-plugin-single-instance = "2.5.5"
 tauri-plugin-updater = "2.14.1"
 tauri-plugin-window-state = "2.5.0"
 log = "0.4.35"
-rusqlite = { version = "0.42.0", features = ["bundled"] }
+rusqlite = { version = "0.42.0", features = ["bundled", "backup"] }
+tempfile = "3.27.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 num-bigint = "0.4.8"
@@ -50,6 +51,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std"
 objc2-web-kit = { version = "0.3.2", default-features = false, features = ["std", "objc2-app-kit", "WKWebView", "WKWebViewConfiguration", "WKPreferences"] }
 
 [target.'cfg(windows)'.dependencies]
+same-file = "1.0.6"
 webview2-com = "0.39.1"
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 # PATH del usuario para la CLI (src/cli_install.rs).
@@ -58,9 +60,6 @@ winreg = "0.56.0"
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = { version = "2.0.2", features = ["v2_38"] }
 gtk = "0.18.2"
-
-[dev-dependencies]
-tempfile = "3.27.0"
 
 [profile.release]
 codegen-units = 1

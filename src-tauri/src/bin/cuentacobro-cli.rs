@@ -132,10 +132,7 @@ fn execute(db_path: Option<&Path>, command: &str, args: &[String]) -> Result<Val
             to_json(cuenta_de_cobro::save(Some(&mut open(db_path)?), input))
         }
         ("backup", [target]) => {
-            // VACUUM INTO saca una copia consistente aunque la app esté escribiendo, y falla si el destino ya existe.
-            open(db_path)?
-                .execute("VACUUM INTO ?1", [target])
-                .map_err(generic::sqlite_message)?;
+            cuentacobro_lib::backup::save_new(&open(db_path)?, Path::new(target))?;
             Ok(json!({ "path": target }))
         }
         _ => Err(format!(

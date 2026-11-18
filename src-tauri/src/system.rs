@@ -5,10 +5,7 @@ use crate::{
     pdf::{PdfError, PdfPage, PdfWindowMode, PrintReadyRegistry, render_route_to_pdf},
 };
 use serde::{Deserialize, Serialize};
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{path::PathBuf, time::Duration};
 use tauri::{AppHandle, Manager, State, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
 use tokio::sync::oneshot;
@@ -42,13 +39,6 @@ fn fail(message: impl Into<String>) -> OperationResult {
     }
 }
 
-fn same_file(a: &Path, b: &Path) -> bool {
-    match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
-        (Ok(x), Ok(y)) => x == y,
-        _ => false,
-    }
-}
-
 #[tauri::command]
 pub async fn db_backup(app: AppHandle, db: State<'_, Database>) -> Result<OperationResult, String> {
     let Some(main) = app.get_webview_window("main") else {
@@ -74,15 +64,9 @@ pub async fn db_backup(app: AppHandle, db: State<'_, Database>) -> Result<Operat
     };
     let target = target.into_path().map_err(|e| e.to_string())?;
     let db = db.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let _guard = db.lock(); // ninguna escritura durante la copia
-        if same_file(&db.path, &target) {
-            return ok(MSG_BACKUP_OK);
-        }
-        match std::fs::copy(&db.path, &target) {
-            Ok(_) => ok(MSG_BACKUP_OK),
-            Err(e) => fail(e.to_string()),
-        }
+    tauri::async_runtime::spawn_blocking(move || match crate::backup::save(&db, &target) {
+        Ok(()) => ok(MSG_BACKUP_OK),
+        Err(message) => fail(message),
     })
     .await
     .map_err(|e| e.to_string())
@@ -111,30 +95,9 @@ pub async fn db_restore(
     };
     let source = source.into_path().map_err(|e| e.to_string())?;
     let db = db.inner().clone();
-    let result = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        let mut guard = db.lock();
-        if let Some(conn) = guard.take()
-            && let Err((conn, e)) = conn.close()
-        {
-            *guard = Some(conn);
-            return Err(crate::generic::sqlite_message(e));
-        }
-        let copied = if same_file(&source, &db.path) {
-            Ok(0)
-        } else {
-            std::fs::copy(&source, &db.path)
-        };
-        if let Err(e) = copied {
-            // Divergencia deliberada: Electron dejaba la BD cerrada.
-            if let Ok(conn) = crate::db::open_connection(&db.path) {
-                *guard = Some(conn);
-            }
-            return Err(e.to_string());
-        }
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+    let result = tauri::async_runtime::spawn_blocking(move || crate::backup::restore(&db, &source))
+        .await
+        .map_err(|e| e.to_string())?;
     match result {
         Ok(()) => app.restart(),
         Err(message) => Ok(fail(message)),

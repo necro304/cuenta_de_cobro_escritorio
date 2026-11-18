@@ -256,8 +256,7 @@ fn generic_sql_like_better_sqlite3() {
 }
 
 /// Una BD en WAL (p. ej. restaurada desde un archivo editado con otra herramienta) vuelve a
-/// DELETE al abrirla, sin perder lo que solo estaba en el `-wal`: así `db_backup`, que copia el
-/// archivo principal, nunca deja datos fuera.
+/// DELETE al abrirla y consolida los registros que estaban en el `-wal`.
 #[test]
 fn open_connection_sale_de_wal_sin_perder_datos() {
     let dir = tempfile::tempdir().unwrap();
@@ -289,7 +288,7 @@ fn open_connection_sale_de_wal_sin_perder_datos() {
     drop(conn);
     assert!(!dir.path().join("copy.sqlite-wal").exists());
 
-    // Lo que hace db_backup: copiar solo el archivo principal.
+    // Verifica que SQLite consolidó los registros en el archivo principal.
     let backup = dir.path().join("backup.sqlite");
     std::fs::copy(&copy, &backup).unwrap();
     let b = rusqlite::Connection::open(&backup).unwrap();

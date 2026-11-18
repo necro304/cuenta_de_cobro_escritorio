@@ -2,6 +2,7 @@
 //!
 //! Decisiones de la migración desde Electron: docs/adr/0001-migracion-a-tauri.md.
 
+pub mod backup;
 pub mod cli_install;
 mod commands;
 pub mod cuenta_de_cobro;
