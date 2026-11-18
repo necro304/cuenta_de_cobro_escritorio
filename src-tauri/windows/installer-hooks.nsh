@@ -17,9 +17,21 @@
   ReadRegStr $R7 HKCU "${CC_LEGACY_INSTALL_KEY}" "InstallLocation"
   ${If} $R7 != ""
   ${AndIf} ${FileExists} "$R7\${CC_LEGACY_UNINSTALLER}"
+  cc_reintentar_desinstalacion:
     DetailPrint "Retirando CuentaCobro 1.x de $R7 (tus datos se conservan)..."
+    ClearErrors
     ExecWait '"$R7\${CC_LEGACY_UNINSTALLER}" /currentuser /S _?=$R7' $R8
-    DetailPrint "Desinstalador de CuentaCobro 1.x terminó con código $R8"
+    ${If} ${Errors}
+      StrCpy $R8 "no se pudo iniciar"
+    ${EndIf}
+    ${If} $R8 != "0"
+      DetailPrint "No se pudo retirar CuentaCobro 1.x ($R8)."
+      MessageBox MB_RETRYCANCEL|MB_ICONSTOP "No se pudo retirar CuentaCobro 1.x ($R8). Cierra la aplicación anterior y vuelve a intentarlo." /SD IDCANCEL IDRETRY cc_reintentar_desinstalacion
+      Pop $R8
+      Pop $R7
+      SetErrorLevel 1
+      Abort
+    ${EndIf}
     Delete "$R7\${CC_LEGACY_UNINSTALLER}"
     RMDir "$R7"
   ${EndIf}
