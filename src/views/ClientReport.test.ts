@@ -3,8 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ClientReport from './ClientReport.vue'
 
 const backend = vi.hoisted(() => ({
-  dbGet: vi.fn(),
-  dbQuery: vi.fn(),
+  readClientReportData: vi.fn(),
   notifyPrintReady: vi.fn(),
 }))
 
@@ -22,69 +21,46 @@ describe('ClientReport', () => {
     vi.useFakeTimers()
     backend.notifyPrintReady.mockReset().mockResolvedValue(undefined)
 
-    backend.dbGet.mockReset().mockImplementation((sql: string) => {
-      if (sql.includes('FROM profile')) {
-        return Promise.resolve({
-          id: 1,
-          name: 'María Rodríguez',
-          document_id: '52.123.456',
-          address: 'Bogotá',
-          phone: '300 000 0000',
-          email: 'maria@example.com',
-          bank_info: '',
-        })
-      }
-      return Promise.resolve({
-        id: 7,
+    backend.readClientReportData.mockReset().mockResolvedValue({
+      profile: { name: 'María Rodríguez' },
+      client: {
         name: 'Fundación Horizonte',
         document_id: '901234567-8',
-        address: 'Carrera 12 # 34-56',
         city: 'Bogotá',
         phone: '601 555 0101',
         email: 'pagos@horizonte.co',
-      })
-    })
-
-    backend.dbQuery.mockReset().mockImplementation((sql: string) => {
-      if (sql.includes('SELECT i.*')) {
-        return Promise.resolve([
-          {
-            id: 11,
-            number: 24,
-            date: '2026-08-15',
-            client_id: 7,
-            total: 1_000_000,
-            notes: '',
-            status: 'partially_paid',
-            paid_amount: 600_000,
-            balance: 400_000,
-          },
-          {
-            id: 10,
-            number: 19,
-            date: '2026-07-12',
-            client_id: 7,
-            total: 500_000,
-            notes: '',
-            status: 'draft',
-            paid_amount: 0,
-            balance: 500_000,
-          },
-        ])
-      }
-      if (sql.includes('FROM invoice_payments p') && sql.includes('LIMIT 8')) {
-        return Promise.resolve([
-          {
-            id: 3,
-            invoice_id: 11,
-            invoice_number: 24,
-            date: '2026-08-20',
-            amount: 600_000,
-            notes: 'Transferencia',
-          },
-        ])
-      }
-      return Promise.resolve([])
+      },
+      invoices: [
+        {
+          id: 11,
+          number: 24,
+          date: '2026-08-15',
+          total: 1_000_000,
+          status: 'partially_paid',
+          paid_amount: 600_000,
+          balance: 400_000,
+        },
+        {
+          id: 10,
+          number: 19,
+          date: '2026-07-12',
+          total: 500_000,
+          status: 'draft',
+          paid_amount: 0,
+          balance: 500_000,
+        },
+      ],
+      payments: [
+        {
+          id: 3,
+          invoice_number: 24,
+          date: '2026-08-20',
+          amount: 600_000,
+          notes: 'Transferencia',
+        },
+      ],
+      monthlyInvoices: [],
+      monthlyPayments: [],
     })
   })
 
@@ -104,6 +80,19 @@ describe('ClientReport', () => {
     expect(wrapper.text()).toContain('40%')
     expect(wrapper.text()).toContain('Cuenta #24')
     expect(wrapper.findAll('.report-page')).toHaveLength(2)
-    expect(backend.notifyPrintReady).toHaveBeenCalledOnce()
+    expect(backend.readClientReportData).toHaveBeenCalledWith(7)
+    expect(backend.notifyPrintReady.mock.calls).toEqual([[]])
+  })
+
+  it('comunica el fallo de carga sin autorizar la impresión del mensaje de error', async () => {
+    backend.readClientReportData.mockRejectedValueOnce(new Error('Falló la consulta'))
+    const wrapper = mount(ClientReport)
+    await flushPromises()
+    await vi.runAllTimersAsync()
+
+    expect(wrapper.find('.report-document').exists()).toBe(false)
+    expect(backend.notifyPrintReady.mock.calls).toEqual([
+      ['No se pudo cargar el informe del cliente.'],
+    ])
   })
 })

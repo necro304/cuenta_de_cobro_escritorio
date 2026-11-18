@@ -7,8 +7,7 @@ import type { Profile } from '@/types'
 const toast = vi.fn()
 const routeQuery: Record<string, string | undefined> = {}
 const backend = vi.hoisted(() => ({
-  dbGet: vi.fn(),
-  dbQuery: vi.fn(),
+  readInvoicePrintData: vi.fn(),
   exportInvoicePdf: vi.fn(),
   notifyPrintReady: vi.fn(),
 }))
@@ -74,21 +73,13 @@ describe('InvoicePrint', () => {
     backend.exportInvoicePdf
       .mockReset()
       .mockResolvedValue({ status: 'done', message: '/tmp/c.pdf' })
-    backend.dbGet.mockReset().mockImplementation((sql: string) => {
-      if (sql.includes('FROM profile')) return Promise.resolve(profileRow)
-      if (sql.includes('FROM invoices'))
-        return Promise.resolve({
-          id: 11,
-          number: 24,
-          date: '2026-08-15',
-          client_id: 7,
-          total: 1,
-          notes: '',
-          status: 'draft',
-        })
-      return Promise.resolve(undefined)
+    backend.readInvoicePrintData.mockReset().mockResolvedValue({
+      profile: profileRow,
+      client: { name: 'Fundación Horizonte' },
+      invoice: { id: 11, number: 24, date: '2026-08-15', total: 1 },
+      bankAccount: null,
+      items: [],
     })
-    backend.dbQuery.mockReset().mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -124,6 +115,18 @@ describe('InvoicePrint', () => {
 
     expect(wrapper.find('[data-test="default"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('Descargar PDF')
-    expect(backend.notifyPrintReady).toHaveBeenCalledOnce()
+    expect(backend.readInvoicePrintData).toHaveBeenCalledWith(11)
+    expect(backend.notifyPrintReady.mock.calls).toEqual([[]])
+  })
+
+  it('comunica el fallo de carga y nunca anuncia una cuenta imprimible', async () => {
+    routeQuery.pdf = '1'
+    backend.readInvoicePrintData.mockRejectedValueOnce(new Error('Falló la consulta'))
+    const wrapper = mountView()
+    await flushPromises()
+    await vi.runAllTimersAsync()
+
+    expect(wrapper.find('[data-test="simple"]').exists()).toBe(false)
+    expect(backend.notifyPrintReady.mock.calls).toEqual([['No se pudo cargar la cuenta de cobro.']])
   })
 })

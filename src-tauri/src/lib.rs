@@ -10,6 +10,7 @@ pub mod generic;
 pub mod legacy_migration;
 pub mod money;
 pub mod pdf;
+mod print_data;
 pub mod sqlvalue;
 pub mod system;
 pub mod types;
@@ -184,6 +185,8 @@ pub fn run() {
             system::db_restore,
             system::export_pdf,
             system::export_client_report_pdf,
+            print_data::read_invoice_print_data,
+            print_data::read_client_report_data,
             system::print_ready,
             legacy_migration_notice,
             cli_install::install_cli,

@@ -46,6 +46,38 @@ fn mensaje_de_cancelacion_es_contrato() {
 }
 
 #[test]
+fn la_ventana_pdf_solo_recibe_lecturas_de_impresion_y_la_senal_de_carga() {
+    use serde_json::{Value, json};
+    use std::collections::BTreeSet;
+    let capabilities: Value =
+        serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/capabilities.json"))).unwrap();
+    let manifests: Value = serde_json::from_str(include_str!(concat!(
+        env!("OUT_DIR"),
+        "/acl-manifests.json"
+    )))
+    .unwrap();
+    let pdf = &capabilities["pdf-export"];
+    assert_eq!(pdf["windows"], json!(["pdf-*"]));
+    assert_eq!(capabilities["default"]["windows"], json!(["main"]));
+    let permissions = &manifests["__app-acl__"]["permissions"];
+    let mut commands = BTreeSet::new();
+    for granted in pdf["permissions"].as_array().unwrap() {
+        let permission = &permissions[granted.as_str().unwrap()];
+        for command in permission["commands"]["allow"].as_array().unwrap() {
+            commands.insert(command.as_str().unwrap());
+        }
+    }
+    assert_eq!(
+        commands,
+        BTreeSet::from([
+            "read_client_report_data",
+            "read_invoice_print_data",
+            "print_ready"
+        ])
+    );
+}
+
+#[test]
 fn el_borrado_de_datos_es_atomico_y_conserva_el_perfil_y_las_cuentas_bancarias() {
     use cuentacobro_lib::db::{clear_billing_data, init_db};
     let mut conn = rusqlite::Connection::open_in_memory().unwrap();

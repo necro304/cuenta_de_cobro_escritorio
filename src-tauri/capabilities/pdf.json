@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "pdf-export",
-  "description": "Ventanas ocultas de exportación PDF (label pdf-<n>): solo los permisos por defecto del núcleo, sin plugins.",
+  "description": "Las ventanas ocultas de exportación pueden leer los documentos imprimibles y comunicar el resultado de la carga.",
   "windows": ["pdf-*"],
-  "permissions": ["core:default"]
+  "permissions": ["allow-read-invoice-print-data", "allow-read-client-report-data", "allow-print-ready"]
 }

@@ -204,31 +204,34 @@ fn failed(message: impl Into<String>) -> PdfError {
     PdfError::Failed(message.into())
 }
 
-/// Estado gestionado (`app.manage`): señales "listo para imprimir" pendientes,
+type LoadResult = Result<(), String>;
+type PendingSignals = HashMap<String, oneshot::Sender<LoadResult>>;
+
+/// Estado gestionado (`app.manage`): resultados de carga pendientes,
 /// por label de ventana. Equivale al `Map<webContentsId, resolve>` de Electron.
 #[derive(Default)]
 pub struct PrintReadyRegistry {
-    pending: Mutex<HashMap<String, oneshot::Sender<()>>>,
+    pending: Mutex<PendingSignals>,
 }
 
 impl PrintReadyRegistry {
-    fn insert(&self, label: &str, tx: oneshot::Sender<()>) {
+    fn insert(&self, label: &str, tx: oneshot::Sender<LoadResult>) {
         self.lock().insert(label.to_owned(), tx);
     }
 
-    fn remove(&self, label: &str) -> Option<oneshot::Sender<()>> {
+    fn remove(&self, label: &str) -> Option<oneshot::Sender<LoadResult>> {
         self.lock().remove(label)
     }
 
     /// Lo llama el comando `print_ready` con el label del webview que invoca.
     /// Desde una ventana que no está exportando no tiene efecto.
-    pub fn notify(&self, label: &str) {
+    pub fn notify(&self, label: &str, result: LoadResult) {
         if let Some(tx) = self.remove(label) {
-            let _ = tx.send(());
+            let _ = tx.send(result);
         }
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, oneshot::Sender<()>>> {
+    fn lock(&self) -> std::sync::MutexGuard<'_, PendingSignals> {
         self.pending
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -310,7 +313,10 @@ pub async fn render_route_to_pdf<R: Runtime>(
     });
     guard.window = Some(window.clone());
 
-    let result = print_when_ready(&window, ready_rx, ready_timeout, page, output).await;
+    let result = print_when_ready(ready_rx, ready_timeout, output, &label, |target| {
+        print_to_file(&window, page, target)
+    })
+    .await;
 
     // Limpieza determinista: se destruye la ventana y se ESPERA su evento
     // `Destroyed` antes de soltar EXPORT_LOCK. Crear la siguiente ventana de PDF
@@ -325,15 +331,15 @@ pub async fn render_route_to_pdf<R: Runtime>(
     // de llegar aquí, su Drop destruye la ventana igualmente.
 }
 
-async fn print_when_ready<R: Runtime>(
-    window: &WebviewWindow<R>,
-    ready_rx: oneshot::Receiver<()>,
+async fn print_when_ready<Fut: std::future::Future<Output = Result<(), PdfError>>>(
+    ready_rx: oneshot::Receiver<LoadResult>,
     ready_timeout: Duration,
-    page: PdfPage,
     output: &Path,
+    label: &str,
+    print: impl FnOnce(PathBuf) -> Fut,
 ) -> Result<(), PdfError> {
     match tokio::time::timeout(ready_timeout, ready_rx).await {
-        Ok(Ok(())) => {}
+        Ok(Ok(result)) => result.map_err(failed)?,
         Ok(Err(_)) => {
             return Err(failed(
                 "La vista de impresión se cerró antes de estar lista",
@@ -353,9 +359,9 @@ async fn print_when_ready<R: Runtime>(
     }
     // El motor escribe en un temporal y solo un PDF completo reemplaza a `output`: si la
     // generación falla, el archivo que el usuario ya tenía con ese nombre queda intacto.
-    let partial = partial_path(output, window.label());
+    let partial = partial_path(output, label);
     let _ = std::fs::remove_file(&partial);
-    if let Err(error) = print_to_file(window, page, &partial).await {
+    if let Err(error) = print(partial.clone()).await {
         let _ = std::fs::remove_file(&partial);
         return Err(error);
     }
@@ -366,10 +372,9 @@ async fn print_when_ready<R: Runtime>(
 async fn print_to_file<R: Runtime>(
     window: &WebviewWindow<R>,
     page: PdfPage,
-    target: &Path,
+    target: PathBuf,
 ) -> Result<(), PdfError> {
     let (done_tx, done_rx) = oneshot::channel::<Result<(), String>>();
-    let target = target.to_path_buf();
     window
         .with_webview(move |webview| platform::print_to_pdf(webview, &target, page, done_tx))
         .map_err(|e| failed(format!("No se pudo acceder al webview: {e}")))?;
@@ -409,6 +414,47 @@ mod tests {
     use super::*;
 
     const ANTERIOR: &[u8] = b"%PDF anterior";
+
+    #[test]
+    fn al_fallar_la_carga_no_imprime_ni_reemplaza_el_destino() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("informe.pdf");
+        std::fs::write(&output, ANTERIOR).unwrap();
+        let registry = PrintReadyRegistry::default();
+        let (tx, rx) = oneshot::channel();
+        registry.insert("pdf-1", tx);
+        registry.notify("pdf-1", Err("Falló la consulta".into()));
+        let result = tauri::async_runtime::block_on(print_when_ready(
+            rx,
+            Duration::from_secs(1),
+            &output,
+            "pdf-1",
+            |_| async { panic!("Se intentó imprimir la vista fallida") },
+        ));
+        assert_eq!(result, Err(PdfError::Failed("Falló la consulta".into())));
+        assert_eq!(std::fs::read(&output).unwrap(), ANTERIOR);
+        assert!(!partial_path(&output, "pdf-1").exists());
+    }
+
+    #[test]
+    fn sin_senal_de_la_ventana_correcta_vence_el_plazo_sin_publicar() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("cuenta.pdf");
+        let registry = PrintReadyRegistry::default();
+        let (tx, rx) = oneshot::channel();
+        registry.insert("pdf-2", tx);
+        registry.notify("pdf-1", Ok(()));
+        let result = tauri::async_runtime::block_on(print_when_ready(
+            rx,
+            Duration::ZERO,
+            &output,
+            "pdf-2",
+            |_| async { panic!("Se intentó imprimir sin señal de la ventana") },
+        ));
+        assert_eq!(result, Err(PdfError::ReadyTimeout));
+        assert!(!output.exists());
+        assert!(!partial_path(&output, "pdf-2").exists());
+    }
 
     #[test]
     fn el_temporal_va_junto_al_destino_con_extension_pdf() {

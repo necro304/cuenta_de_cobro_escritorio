@@ -323,9 +323,12 @@ pub async fn export_client_report_pdf(
     .await
 }
 
-/// La vista en modo `?pdf=1` lo invoca al terminar de pintar. Se resuelve por el label del
-/// webview que llama; desde cualquier otra ventana no hace nada.
+/// La vista en modo `?pdf=1` comunica que terminó de pintar o que falló la carga.
 #[tauri::command]
-pub fn print_ready(webview: tauri::Webview, registry: State<'_, PrintReadyRegistry>) {
-    registry.notify(webview.label());
+pub fn print_ready(
+    webview: tauri::Webview,
+    registry: State<'_, PrintReadyRegistry>,
+    error: Option<String>,
+) {
+    registry.notify(webview.label(), error.map_or(Ok(()), Err));
 }

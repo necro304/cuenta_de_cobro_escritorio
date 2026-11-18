@@ -8,6 +8,24 @@
     "core:webview:allow-print",
     "core:webview:allow-set-webview-zoom",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "allow-db-query",
+    "allow-db-get",
+    "allow-db-run",
+    "allow-clear-billing-data",
+    "allow-cuenta-de-cobro-open",
+    "allow-cuenta-de-cobro-save",
+    "allow-invoice-ledger",
+    "allow-invoice-payment-history",
+    "allow-invoice-payment-save",
+    "allow-invoice-payment-delete",
+    "allow-db-backup",
+    "allow-db-restore",
+    "allow-export-pdf",
+    "allow-export-client-report-pdf",
+    "allow-read-invoice-print-data",
+    "allow-read-client-report-data",
+    "allow-legacy-migration-notice",
+    "allow-install-cli"
   ]
 }

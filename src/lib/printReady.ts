@@ -9,13 +9,16 @@ const SETTLE_DELAY_MS = 100
  * espera DOM, fuentes e imágenes (firma en data URL) y avisa al backend que ya
  * puede capturar el PDF.
  */
-export async function signalPrintReady(): Promise<void> {
-  await nextTick()
-  if (document.fonts) await document.fonts.ready
-  const pendingImages = Array.from(document.querySelectorAll('img')).filter(
-    (image) => !image.complete && typeof image.decode === 'function',
-  )
-  await Promise.all(pendingImages.map((image) => image.decode().catch(() => undefined)))
+export async function signalPrintReady(loadError?: string): Promise<void> {
+  if (loadError) return notifyPrintReady(loadError)
+  try {
+    await nextTick()
+    if (document.fonts) await document.fonts.ready
+    const images = Array.from(document.querySelectorAll('img'))
+    await Promise.all(images.map((image) => image.decode?.()))
+  } catch {
+    return notifyPrintReady('No se pudieron preparar los recursos del documento.')
+  }
   await new Promise((resolve) => setTimeout(resolve, SETTLE_DELAY_MS))
   await notifyPrintReady()
 }

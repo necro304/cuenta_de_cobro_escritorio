@@ -2,29 +2,20 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { formatCurrency, formatDate } from '@/lib/format'
-import { dbGet, dbQuery } from '@/api/backend'
+import { readClientReportData, type ClientReportData } from '@/api/backend'
 import { signalPrintReady } from '@/lib/printReady'
-import type { Client, Invoice, InvoicePayment, Profile } from '@/types'
-
-interface MonthlyAmount {
-  month: string
-  total: number
-}
-
-interface ClientPayment extends InvoicePayment {
-  invoice_number: number
-}
+import type { Invoice } from '@/types'
 
 const route = useRoute()
 const clientId = Number(Array.isArray(route.params.id) ? route.params.id[0] : route.params.id)
 const isPdfMode = route.query.pdf === '1'
 
-const client = ref<Client | null>(null)
-const profile = ref<Profile | null>(null)
-const invoices = ref<Invoice[]>([])
-const monthlyInvoices = ref<MonthlyAmount[]>([])
-const monthlyPayments = ref<MonthlyAmount[]>([])
-const payments = ref<ClientPayment[]>([])
+const client = ref<ClientReportData['client'] | null>(null)
+const profile = ref<ClientReportData['profile'] | null>(null)
+const invoices = ref<ClientReportData['invoices']>([])
+const monthlyInvoices = ref<ClientReportData['monthlyInvoices']>([])
+const monthlyPayments = ref<ClientReportData['monthlyPayments']>([])
+const payments = ref<ClientReportData['payments']>([])
 const isLoading = ref(true)
 const loadError = ref(false)
 
@@ -158,71 +149,22 @@ const loadReport = async () => {
   loadError.value = false
 
   try {
-    const [
-      clientRecord,
-      profileRecord,
-      clientInvoices,
-      issuedByMonth,
-      collectedByMonth,
-      clientPayments,
-    ] = await Promise.all([
-      dbGet<Client>('SELECT * FROM clients WHERE id = ?', [clientId]),
-      dbGet<Profile>('SELECT * FROM profile WHERE id = 1'),
-      dbQuery<Invoice>(
-        `SELECT i.*,
-            COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0) as paid_amount,
-            MAX(i.total - COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0), 0) as balance
-          FROM invoices i
-          WHERE i.client_id = ?
-          ORDER BY i.date DESC, i.number DESC`,
-        [clientId],
-      ),
-      dbQuery<MonthlyAmount>(
-        `SELECT strftime('%Y-%m', date) as month, COALESCE(SUM(total), 0) as total
-          FROM invoices
-          WHERE client_id = ?
-            AND date >= date('now', 'localtime', 'start of month', '-5 months')
-          GROUP BY month
-          ORDER BY month`,
-        [clientId],
-      ),
-      dbQuery<MonthlyAmount>(
-        `SELECT strftime('%Y-%m', p.date) as month, COALESCE(SUM(p.amount), 0) as total
-          FROM invoice_payments p
-          JOIN invoices i ON i.id = p.invoice_id
-          WHERE i.client_id = ?
-            AND p.date >= date('now', 'localtime', 'start of month', '-5 months')
-          GROUP BY month
-          ORDER BY month`,
-        [clientId],
-      ),
-      dbQuery<ClientPayment>(
-        `SELECT p.*, i.number as invoice_number
-          FROM invoice_payments p
-          JOIN invoices i ON i.id = p.invoice_id
-          WHERE i.client_id = ?
-          ORDER BY p.date DESC, p.id DESC
-          LIMIT 8`,
-        [clientId],
-      ),
-    ])
-
-    if (!clientRecord) {
-      loadError.value = true
-      return
-    }
-
-    client.value = clientRecord
-    profile.value = profileRecord ?? null
-    invoices.value = clientInvoices
-    monthlyInvoices.value = issuedByMonth
-    monthlyPayments.value = collectedByMonth
-    payments.value = clientPayments
+    const data = await readClientReportData(clientId)
+    client.value = data.client
+    profile.value = data.profile
+    invoices.value = data.invoices
+    monthlyInvoices.value = data.monthlyInvoices
+    monthlyPayments.value = data.monthlyPayments
+    payments.value = data.payments
   } catch {
     loadError.value = true
   } finally {
     isLoading.value = false
-    if (isPdfMode) await signalPrintReady()
+    if (isPdfMode) {
+      await signalPrintReady(
+        loadError.value ? 'No se pudo cargar el informe del cliente.' : undefined,
+      )
+    }
   }
 }
 

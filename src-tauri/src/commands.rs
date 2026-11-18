@@ -12,7 +12,7 @@ pub async fn clear_billing_data(db: State<'_, Database>) -> Result<(), String> {
     .await
 }
 
-async fn with_conn<T: Send + 'static>(
+pub(crate) async fn with_conn<T: Send + 'static>(
     db: &Database,
     f: impl FnOnce(&mut rusqlite::Connection) -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {

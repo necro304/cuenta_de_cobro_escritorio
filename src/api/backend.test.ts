@@ -17,6 +17,8 @@ import {
   invoicePaymentHistory,
   legacyMigrationNotice,
   notifyPrintReady,
+  readClientReportData,
+  readInvoicePrintData,
   restoreDatabase,
   saveInvoicePayment,
 } from './backend'
@@ -195,11 +197,25 @@ describe('backend (contrato IPC)', () => {
     expect(calls).toEqual([{ cmd: 'install_cli', payload: {} }])
   })
 
-  it('notifyPrintReady invoca print_ready sin argumentos y no rechaza', async () => {
+  it('las vistas de impresión solo envían el id al comando de lectura', async () => {
+    mockBackend(() => ({}))
+    await readInvoicePrintData(11)
+    await readClientReportData(7)
+    expect(calls).toEqual([
+      { cmd: 'read_invoice_print_data', payload: { invoiceId: 11 } },
+      { cmd: 'read_client_report_data', payload: { clientId: 7 } },
+    ])
+  })
+
+  it('notifyPrintReady comunica si falló la carga y tolera el cierre de la ventana', async () => {
     mockBackend(() => Promise.reject('sin exportación pendiente'))
 
     await expect(notifyPrintReady()).resolves.toBeUndefined()
-    expect(calls[0].cmd).toBe('print_ready')
+    await expect(notifyPrintReady('No se pudo cargar el informe.')).resolves.toBeUndefined()
+    expect(calls).toEqual([
+      { cmd: 'print_ready', payload: {} },
+      { cmd: 'print_ready', payload: { error: 'No se pudo cargar el informe.' } },
+    ])
   })
 
   it('legacyMigrationNotice invoca legacy_migration_notice sin argumentos', async () => {

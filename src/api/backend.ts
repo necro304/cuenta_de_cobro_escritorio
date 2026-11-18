@@ -7,7 +7,15 @@
  * diálogos de archivo los abre Rust (paridad con Electron).
  */
 import { invoke, isTauri } from '@tauri-apps/api/core'
-import type { InvoicePayment, TemplateId } from '@/types'
+import type {
+  BankAccount,
+  Client,
+  Invoice,
+  InvoiceItem,
+  InvoicePayment,
+  Profile,
+  TemplateId,
+} from '@/types'
 import type {
   CuentaDeCobroEditorModel,
   CuentaDeCobroSummary,
@@ -76,6 +84,8 @@ export type BackendCommand =
   | 'clear_billing_data'
   | 'export_pdf'
   | 'export_client_report_pdf'
+  | 'read_invoice_print_data'
+  | 'read_client_report_data'
   | 'print_ready'
   | 'legacy_migration_notice'
   | 'install_cli'
@@ -211,6 +221,39 @@ export const restoreDatabase = (): Promise<ActionOutcome> => runAction('db_resto
 
 // --- PDF ---------------------------------------------------------------------
 
+export interface InvoicePrintData {
+  profile: Profile
+  client: Pick<Client, 'name' | 'document_id' | 'address' | 'city' | 'phone'>
+  invoice: Pick<Invoice, 'id' | 'number' | 'date' | 'total'>
+  items: InvoiceItem[]
+  bankAccount: BankAccount | null
+}
+
+interface MonthlyAmount {
+  month: string
+  total: number
+}
+
+export interface ClientReportData {
+  profile: Pick<Profile, 'name'>
+  client: Pick<Client, 'name' | 'document_id' | 'city' | 'phone' | 'email'>
+  invoices: Pick<
+    Invoice,
+    'id' | 'number' | 'date' | 'total' | 'status' | 'paid_amount' | 'balance'
+  >[]
+  monthlyInvoices: MonthlyAmount[]
+  monthlyPayments: MonthlyAmount[]
+  payments: (Pick<InvoicePayment, 'id' | 'date' | 'amount' | 'notes'> & {
+    invoice_number: number
+  })[]
+}
+
+export const readInvoicePrintData = (invoiceId: number): Promise<InvoicePrintData> =>
+  call('read_invoice_print_data', { invoiceId })
+
+export const readClientReportData = (clientId: number): Promise<ClientReportData> =>
+  call('read_client_report_data', { clientId })
+
 export const exportInvoicePdf = (request: ExportInvoicePdfRequest): Promise<ActionOutcome> =>
   runAction('export_pdf', { opts: { ...request } })
 
@@ -219,14 +262,13 @@ export const exportClientReportPdf = (
 ): Promise<ActionOutcome> => runAction('export_client_report_pdf', { opts: { ...request } })
 
 /**
- * Lo llama la vista de impresión cuando corre en la ventana oculta de exportación
- * (`?pdf=1`). Fuera de Tauri no hace nada. Nunca rechaza: si la señal se pierde,
- * el backend agota su tiempo de espera y la exportación termina en `failed`.
+ * La ventana de exportación indica si puede imprimirse o qué impidió la carga.
+ * Si se pierde la señal, el backend cancela la exportación al vencer el plazo.
  */
-export const notifyPrintReady = async (): Promise<void> => {
+export const notifyPrintReady = async (error?: string): Promise<void> => {
   if (!isDesktop()) return
   try {
-    await call<null>('print_ready')
+    await call<null>('print_ready', { error })
   } catch {
     // El timeout del comando de exportación informa el fallo al usuario.
   }
