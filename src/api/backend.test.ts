@@ -9,12 +9,16 @@ import {
   dbGet,
   dbQuery,
   dbRun,
+  deleteInvoicePayment,
   exportClientReportPdf,
   exportInvoicePdf,
   installCli,
+  invoiceLedger,
+  invoicePaymentHistory,
   legacyMigrationNotice,
   notifyPrintReady,
   restoreDatabase,
+  saveInvoicePayment,
 } from './backend'
 
 type TauriGlobal = typeof globalThis & { isTauri?: boolean }
@@ -71,6 +75,21 @@ describe('backend (contrato IPC)', () => {
       changes: 1,
       lastInsertRowid: 42,
     })
+  })
+
+  it('envía el libro y las operaciones de abonos a sus comandos de dominio', async () => {
+    mockBackend(() => ({}))
+    const payment = { invoiceId: 4, date: '2026-11-30', amount: '10.30', notes: '' }
+    await invoiceLedger()
+    await invoicePaymentHistory(4)
+    await saveInvoicePayment(payment)
+    await deleteInvoicePayment(4, 9)
+    expect(calls).toEqual([
+      { cmd: 'invoice_ledger', payload: {} },
+      { cmd: 'invoice_payment_history', payload: { invoiceId: 4 } },
+      { cmd: 'invoice_payment_save', payload: { payment } },
+      { cmd: 'invoice_payment_delete', payload: { invoiceId: 4, paymentId: 9 } },
+    ])
   })
 
   it('convierte el rechazo del backend en BackendError con el comando', async () => {

@@ -51,6 +51,43 @@ pub async fn db_run(
     with_conn(&db, move |c| generic::db_run(c, &sql, params)).await
 }
 #[tauri::command]
+pub async fn invoice_ledger(
+    db: State<'_, Database>,
+) -> Result<Vec<cuenta_de_cobro::abonos::LedgerInvoice>, String> {
+    with_conn(&db, |c| {
+        cuenta_de_cobro::abonos::ledger(c).map_err(generic::sqlite_message)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn invoice_payment_history(
+    db: State<'_, Database>,
+    invoice_id: i64,
+) -> Result<cuenta_de_cobro::abonos::PaymentHistory, String> {
+    with_conn(&db, move |c| {
+        cuenta_de_cobro::abonos::history(c, invoice_id)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn invoice_payment_save(
+    db: State<'_, Database>,
+    payment: cuenta_de_cobro::abonos::NewPayment,
+) -> Result<CuentaDeCobroSummary, String> {
+    with_conn(&db, move |c| cuenta_de_cobro::abonos::save(c, payment)).await
+}
+#[tauri::command]
+pub async fn invoice_payment_delete(
+    db: State<'_, Database>,
+    invoice_id: i64,
+    payment_id: i64,
+) -> Result<CuentaDeCobroSummary, String> {
+    with_conn(&db, move |c| {
+        cuenta_de_cobro::abonos::delete(c, invoice_id, payment_id)
+    })
+    .await
+}
+#[tauri::command]
 pub async fn cuenta_de_cobro_open(
     db: State<'_, Database>,
     target: CuentaDeCobroTarget,

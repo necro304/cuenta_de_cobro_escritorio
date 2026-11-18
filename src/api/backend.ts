@@ -7,9 +7,10 @@
  * diálogos de archivo los abre Rust (paridad con Electron).
  */
 import { invoke, isTauri } from '@tauri-apps/api/core'
-import type { TemplateId } from '@/types'
+import type { InvoicePayment, TemplateId } from '@/types'
 import type {
   CuentaDeCobroEditorModel,
+  CuentaDeCobroSummary,
   CuentaDeCobroModule,
   CuentaDeCobroResult,
   CuentaDeCobroTarget,
@@ -64,6 +65,10 @@ export type BackendCommand =
   | 'db_query'
   | 'db_get'
   | 'db_run'
+  | 'invoice_ledger'
+  | 'invoice_payment_history'
+  | 'invoice_payment_save'
+  | 'invoice_payment_delete'
   | 'cuenta_de_cobro_open'
   | 'cuenta_de_cobro_save'
   | 'db_backup'
@@ -156,6 +161,33 @@ export const dbRun = (sql: string, params: DbParam[] = []): Promise<RunResult> =
   call<RunResult>('db_run', { sql, params })
 
 // --- Cuenta de cobro (módulo profundo en Rust) ------------------------------
+
+export interface LedgerInvoice {
+  id: number
+  number: number
+  date: string
+  clientName: string
+  summary: CuentaDeCobroSummary
+}
+
+export const invoiceLedger = (): Promise<LedgerInvoice[]> => call('invoice_ledger')
+
+export const invoicePaymentHistory = (
+  invoiceId: number,
+): Promise<{ summary: CuentaDeCobroSummary; payments: InvoicePayment[] }> =>
+  call('invoice_payment_history', { invoiceId })
+
+export const saveInvoicePayment = (payment: {
+  invoiceId: number
+  date: string
+  amount: string
+  notes: string
+}): Promise<CuentaDeCobroSummary> => call('invoice_payment_save', { payment })
+
+export const deleteInvoicePayment = (
+  invoiceId: number,
+  paymentId: number,
+): Promise<CuentaDeCobroSummary> => call('invoice_payment_delete', { invoiceId, paymentId })
 
 export const cuentaDeCobro: CuentaDeCobroModule = {
   open: (target: CuentaDeCobroTarget) =>

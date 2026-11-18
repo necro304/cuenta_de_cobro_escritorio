@@ -26,6 +26,9 @@ Comandos:
   cuenta-open [id]       Borrador para crear una cuenta de cobro (trae el siguiente número) o
                          para editar la cuenta <id>, más clientes, cuentas bancarias y resumen.
   cuenta-save <json>     Crea o edita una cuenta de cobro con las reglas de la app.
+  cuenta-list            Libro de cuentas con total, abonos, saldo y estado calculados en centavos.
+  abono-add <json>       Registra un abono y actualiza el estado en una transacción.
+  abono-delete <cuenta> <abono>   Elimina el abono de esa cuenta y recalcula su estado.
   backup <destino>       Copia consistente de la BD. No sobrescribe un archivo existente.
 
 [params] es un arreglo JSON, p. ej. '[1, "texto", null]'. Sin booleanos: usa 1 o 0.
@@ -36,11 +39,14 @@ cuenta-save recibe {"kind":"create","cuenta":{...}} o {"kind":"edit","id":<id>,"
    "concepts":[{"description":"Servicio","quantity":"1","price":"150000.50"}]}
 cuenta-open y cuenta-save responden {"ok":true,"value":...} o {"ok":false,"error":{"code":...}}.
 
+abono-add recibe {"invoiceId":1,"date":"2026-11-11","amount":"125.50","notes":"Transferencia"}.
+El monto admite hasta dos decimales. notes es opcional. abono-add y abono-delete devuelven el
+resumen de la cuenta con total, paidAmount, balance y paymentStatus.
+
 Reglas de la app que run no aplica por ti:
   - Crear o editar una cuenta de cobro (número, fecha, cliente, conceptos) solo con cuenta-save:
     calcula el total y el estado y protege los abonos. No escribas en invoice_items.
-  - Tras agregar o borrar un abono (invoice_payments), actualiza invoices.status: 'draft' sin
-    abonos, 'partially_paid' si lo abonado es menor que el total y 'paid' si lo cubre.
+  - Usa abono-add y abono-delete para mantener el estado sincronizado con los pagos.
   - El perfil es una sola fila: WHERE id = 1.
   - Esquema: query "SELECT sql FROM sqlite_master WHERE type = 'table'"
 
@@ -88,6 +94,24 @@ fn execute(db_path: Option<&Path>, command: &str, args: &[String]) -> Result<Val
                 "get" => to_json(generic::db_get(&conn, sql, params)?),
                 _ => to_json(generic::db_run(&conn, sql, params)?),
             }
+        }
+        ("cuenta-list", []) => to_json(
+            cuenta_de_cobro::abonos::ledger(&mut open(db_path)?)
+                .map_err(generic::sqlite_message)?,
+        ),
+        ("abono-add", [input]) => {
+            let payment = serde_json::from_str(input)
+                .map_err(|e| format!("el JSON de abono-add no es válido: {e}"))?;
+            to_json(cuenta_de_cobro::abonos::save(&mut open(db_path)?, payment)?)
+        }
+        ("abono-delete", [invoice_id, payment_id]) => {
+            let invoice_id = invoice_id.parse().map_err(|_| "id de cuenta no válido")?;
+            let payment_id = payment_id.parse().map_err(|_| "id de abono no válido")?;
+            to_json(cuenta_de_cobro::abonos::delete(
+                &mut open(db_path)?,
+                invoice_id,
+                payment_id,
+            )?)
         }
         ("cuenta-open", []) => to_json(cuenta_de_cobro::open(
             &open(db_path)?,

@@ -84,7 +84,7 @@ Para usarla desde cualquier terminal, abre la app y ve a **Configuración → CL
 - **Windows:** agrega la carpeta de la app a tu PATH de usuario.
 - **Ubuntu y Debian (.deb):** ya viene en el PATH; el botón solo lo confirma. El AppImage no la expone: usa el `.deb`.
 
-Después abre una terminal nueva (o reinicia tu agente) y pídele que ejecute `cuentacobro-cli help`: ahí están los comandos (`query`, `get`, `run`, `cuenta-open`, `cuenta-save` y `backup`) y las reglas que debe seguir. La CLI cambia tus datos reales: pídele que haga un `backup` antes de modificar algo.
+Después abre una terminal nueva (o reinicia tu agente) y pídele que ejecute `cuentacobro-cli help`: ahí están los comandos (`query`, `get`, `run`, `cuenta-open`, `cuenta-save`, `cuenta-list`, `abono-add`, `abono-delete` y `backup`) y las reglas que debe seguir. La CLI cambia tus datos reales: pídele que haga un `backup` antes de modificar algo.
 
 Sin instalarla en el PATH también se puede usar con su ruta completa:
 

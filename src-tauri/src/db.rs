@@ -134,5 +134,5 @@ pub fn init_db(conn: &Connection) -> rusqlite::Result<()> {
             ["Mi Nombre"],
         )?;
     }
-    Ok(())
+    crate::cuenta_de_cobro::abonos::repair_statuses(conn)
 }

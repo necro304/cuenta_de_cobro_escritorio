@@ -1,4 +1,5 @@
 //! Port de electron/cuentaDeCobro.ts.
+pub mod abonos;
 use crate::money::*;
 use crate::sqlvalue::{Sql, is_safe_integer};
 use crate::types::*;
@@ -113,8 +114,8 @@ struct Paid {
 }
 
 fn get_paid_cents(conn: &Connection, invoice_id: i64) -> rusqlite::Result<Paid> {
-    let mut st =
-        conn.prepare("SELECT amount FROM invoice_payments WHERE invoice_id = ? ORDER BY id")?;
+    let mut st = conn
+        .prepare_cached("SELECT amount FROM invoice_payments WHERE invoice_id = ? ORDER BY id")?;
     let amounts: Vec<Sql> = st
         .query_map([invoice_id], |r| Ok(Sql::from_ref(r.get_ref(0)?)))?
         .collect::<rusqlite::Result<_>>()?;
@@ -331,6 +332,31 @@ fn get_persisted_concept_total(
     }
 }
 
+fn read_concepts(
+    conn: &Connection,
+    invoice_id: i64,
+) -> rusqlite::Result<Vec<ConceptoDeCobroDraft>> {
+    let mut st = conn.prepare_cached(
+        "SELECT description, quantity, price FROM invoice_items WHERE invoice_id = ? ORDER BY id",
+    )?;
+    st.query_map([invoice_id], |r| {
+        let to_decimal_text = |v: Sql| match v {
+            Sql::Null => String::new(),
+            v => v
+                .as_js_number()
+                .and_then(database_number_to_decimal)
+                .map(|d| d.canonical)
+                .unwrap_or_default(),
+        };
+        Ok(ConceptoDeCobroDraft {
+            description: Sql::from_ref(r.get_ref(0)?).to_js_string(),
+            quantity: to_decimal_text(Sql::from_ref(r.get_ref(1)?)),
+            price: to_decimal_text(Sql::from_ref(r.get_ref(2)?)),
+        })
+    })?
+    .collect()
+}
+
 fn open_inner(
     conn: &Connection,
     target: CuentaDeCobroTarget,
@@ -380,26 +406,7 @@ fn open_inner(
     let [number, date, client_id, bank_account_id, total, notes]: [Sql; 6] =
         cols.try_into().unwrap();
 
-    let mut st = conn.prepare(
-        "SELECT description, quantity, price FROM invoice_items WHERE invoice_id = ? ORDER BY id",
-    )?;
-    let concepts: Vec<ConceptoDeCobroDraft> = st
-        .query_map([invoice_id], |r| {
-            let to_decimal_text = |v: Sql| match v {
-                Sql::Null => String::new(),
-                v => v
-                    .as_js_number()
-                    .and_then(database_number_to_decimal)
-                    .map(|d| d.canonical)
-                    .unwrap_or_default(),
-            };
-            Ok(ConceptoDeCobroDraft {
-                description: Sql::from_ref(r.get_ref(0)?).to_js_string(),
-                quantity: to_decimal_text(Sql::from_ref(r.get_ref(1)?)),
-                price: to_decimal_text(Sql::from_ref(r.get_ref(2)?)),
-            })
-        })?
-        .collect::<rusqlite::Result<_>>()?;
+    let concepts = read_concepts(conn, invoice_id)?;
 
     let mut diagnostics = Vec::new();
     let number_ok = number
