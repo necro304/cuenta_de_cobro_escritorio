@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Profile, Client, Invoice, InvoiceItem, BankAccount } from '@/types'
-import { numeroALetras } from '@/lib/numeroALetras'
-import { formatCurrency, formatDate } from '@/lib/format'
+import { importeEnLetras } from '@/lib/numeroALetras'
+import { getPrintedAmounts } from '@/lib/cuentaDeCobroMoney'
+import { formatDate } from '@/lib/format'
 
-defineProps<{
+const props = defineProps<{
   profile: Partial<Profile>
   client: Partial<Client>
   invoice: Partial<Invoice>
@@ -11,6 +13,7 @@ defineProps<{
   bankAccount: BankAccount | null
   signature: string | null
 }>()
+const amounts = computed(() => getPrintedAmounts(props.items, props.invoice.total))
 
 const getDocumentType = (docId: string | undefined) => {
   // Basic heuristic or default to NIT/CC
@@ -41,9 +44,10 @@ const getDocumentType = (docId: string | undefined) => {
 
     <div class="suma">
       <h2>LA SUMA DE:</h2>
-      <div class="monto">
-        {{ numeroALetras(invoice.total || 0) }} PESOS (COP {{ formatCurrency(invoice.total) }})
+      <div v-if="amounts.totalCents !== null" class="monto">
+        {{ importeEnLetras(amounts.totalCents) }} (COP {{ amounts.total }})
       </div>
+      <div v-else class="monto">Importe no disponible</div>
     </div>
 
     <div class="concepto">

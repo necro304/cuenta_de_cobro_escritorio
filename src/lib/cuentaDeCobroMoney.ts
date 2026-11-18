@@ -1,3 +1,4 @@
+import type { InvoiceItem } from '../types'
 import type { ConceptoDeCobroDraft, Money } from '../types/cuentaDeCobro'
 
 export interface ParsedDecimal {
@@ -14,10 +15,14 @@ export const centsToMoney = (cents: bigint): Money => {
   return `${whole}.${decimal}`
 }
 
-export const formatMoneyForDisplay = (money: Money): string => {
-  const [whole, decimal] = money.split('.')
-  return `${BigInt(whole).toLocaleString('es-CO')},${decimal}`
+const formatDecimalForDisplay = (canonical: string, minimumDecimals: number): string => {
+  const [whole, fraction = ''] = canonical.split('.')
+  const decimal = fraction.padEnd(minimumDecimals, '0')
+  const integer = BigInt(whole).toLocaleString('es-CO')
+  return decimal ? `${integer},${decimal}` : integer
 }
+
+export const formatMoneyForDisplay = (money: Money): string => formatDecimalForDisplay(money, 2)
 
 export const parseDecimal = (input: string, allowZero: boolean): ParsedDecimal | null => {
   const value = input.trim()
@@ -114,4 +119,39 @@ export const calculatePreviewTotal = (concepts: ConceptoDeCobroDraft[]): Money =
   }
 
   return centsToMoney(totalCents)
+}
+
+export const getPrintedAmounts = (items: InvoiceItem[], storedTotal: number | undefined) => {
+  let conceptTotal = 0n
+  let validConcepts = items.length > 0
+  const rows = items.map((item) => {
+    const quantity = databaseNumberToDecimal(item.quantity)
+    const price = databaseNumberToDecimal(item.price)
+    const subtotal = quantity && price ? roundProductToCents(quantity, price) : null
+    if (!item.description?.trim() || subtotal === null || subtotal === 0n) validConcepts = false
+    if (subtotal !== null) conceptTotal += subtotal
+
+    return {
+      id: item.id,
+      description: item.description,
+      quantity: quantity ? formatDecimalForDisplay(quantity.canonical, 0) : '—',
+      price: price ? formatMoneyForDisplay(price.canonical) : '—',
+      subtotal: subtotal === null ? '—' : formatMoneyForDisplay(centsToMoney(subtotal)),
+    }
+  })
+
+  // Igual que el editor, conserva el total histórico si los conceptos no permiten reconstruirlo.
+  let totalCents: bigint | null = conceptTotal
+  if (
+    !validConcepts ||
+    conceptTotal > MAX_SAFE_CENTS ||
+    centsToDatabaseNumber(conceptTotal) === null
+  ) {
+    totalCents = storedTotal === undefined ? null : databaseNumberToCents(storedTotal)
+  }
+  return {
+    rows,
+    totalCents,
+    total: totalCents === null ? '—' : formatMoneyForDisplay(centsToMoney(totalCents)),
+  }
 }
