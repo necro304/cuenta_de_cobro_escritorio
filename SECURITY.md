@@ -4,9 +4,10 @@
 
 Actualmente solo se proporciona soporte de seguridad para la versión más reciente del proyecto.
 
-| Versión | Soportada |
-| ------- | --------- |
-| > 1.0.x | ✅        |
+| Versión        | Soportada |
+| -------------- | --------- |
+| 2.x (Tauri)    | ✅        |
+| 1.x (Electron) | ❌        |
 
 ## Reportar una Vulnerabilidad
 

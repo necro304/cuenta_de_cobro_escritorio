@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast/use-toast'
 import { calculatePreviewTotal, formatMoneyForDisplay } from '@/lib/cuentaDeCobroMoney'
+import { cuentaDeCobro } from '@/api/backend'
 import type {
   ClienteOption,
   CuentaBancariaOption,
@@ -145,9 +146,7 @@ const loadData = async () => {
     isEditing.value = id !== null
     invoiceIdToEdit.value = id
 
-    const result = await window.electronAPI.cuentaDeCobro.open(
-      id === null ? { kind: 'create' } : { kind: 'edit', id },
-    )
+    const result = await cuentaDeCobro.open(id === null ? { kind: 'create' } : { kind: 'edit', id })
 
     if (!result.ok) {
       loadError.value = true
@@ -162,6 +161,15 @@ const loadData = async () => {
     invoice.value = result.value.cuenta
     clients.value = result.value.clientes
     bankAccounts.value = result.value.cuentasBancarias
+
+    const requestedClientId = Number(route.query.clientId)
+    if (
+      id === null &&
+      Number.isSafeInteger(requestedClientId) &&
+      result.value.clientes.some((client) => client.id === requestedClientId)
+    ) {
+      invoice.value.clientId = requestedClientId
+    }
 
     if (result.value.diagnostics.length > 0) {
       toast({
@@ -214,7 +222,7 @@ const saveInvoice = async () => {
 
   isSaving.value = true
   try {
-    const result = await window.electronAPI.cuentaDeCobro.save(
+    const result = await cuentaDeCobro.save(
       isEditing.value && invoiceIdToEdit.value
         ? { kind: 'edit', id: invoiceIdToEdit.value, cuenta: copyDraft() }
         : { kind: 'create', cuenta: copyDraft() },
@@ -318,7 +326,12 @@ onMounted(loadData)
             <div class="grid gap-4 sm:grid-cols-2">
               <div class="grid gap-2">
                 <Label for="invoice-number">Número</Label>
-                <Input id="invoice-number" v-model="invoice.number" type="number" />
+                <Input
+                  id="invoice-number"
+                  :model-value="invoice.number"
+                  type="number"
+                  @update:model-value="invoice.number = String($event)"
+                />
               </div>
               <div class="grid gap-2">
                 <Label for="invoice-date">Fecha</Label>
@@ -409,7 +422,7 @@ onMounted(loadData)
                 Describe cada servicio o producto cobrado.
               </p>
             </div>
-            <Button variant="outline" size="sm" @click="addItem" class="gap-1">
+            <Button variant="outline" size="sm" class="gap-1" @click="addItem">
               <Plus class="h-4 w-4" /> Agregar
             </Button>
           </CardHeader>
@@ -425,11 +438,23 @@ onMounted(loadData)
               </div>
               <div class="col-span-4 grid gap-2 sm:col-span-2">
                 <Label>Cantidad</Label>
-                <Input v-model="item.quantity" type="number" step="0.01" min="0.01" />
+                <Input
+                  :model-value="item.quantity"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  @update:model-value="item.quantity = String($event)"
+                />
               </div>
               <div class="col-span-6 grid gap-2 sm:col-span-3">
                 <Label>Precio unitario</Label>
-                <Input v-model="item.price" type="number" step="0.01" min="0.01" />
+                <Input
+                  :model-value="item.price"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  @update:model-value="item.price = String($event)"
+                />
                 <p class="text-xs text-muted-foreground">
                   Subtotal
                   <span class="metric-value font-semibold text-foreground">
@@ -441,10 +466,10 @@ onMounted(loadData)
                 <Button
                   variant="ghost"
                   size="icon"
-                  @click="removeItem(index)"
                   :disabled="invoice.concepts.length === 1"
                   aria-label="Eliminar concepto"
                   title="Eliminar concepto"
+                  @click="removeItem(index)"
                 >
                   <Trash2 class="h-4 w-4 text-destructive" />
                 </Button>

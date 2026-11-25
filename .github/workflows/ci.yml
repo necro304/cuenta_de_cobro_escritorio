@@ -1,38 +1,179 @@
-name: Continuous Integration
+name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
     branches: [main]
+  # Permite lanzar a mano (Actions → CI → Run workflow) el job `bundle` para obtener instaladores de QA.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  web:
+    name: Frontend (lint, tipos, tests, build)
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: '24'
+          cache: npm
 
-      - name: Install Dependencies
+      - name: Instalar dependencias
         run: npm ci
 
-      - name: Run Lint
+      - name: Lint
         run: npm run lint
 
-      - name: Type Check
-        run: npx vue-tsc --noEmit
+      - name: Type check
+        run: npm run typecheck
 
-      - name: Test Cuenta de Cobro Persistence
-        run: xvfb-run -a npm run test:database
+      - name: Tests de componentes (Vitest)
+        run: npm run test:renderer
 
-      - name: Build Application
-        run: npx vite build
-        env:
-          NODE_ENV: production
+      - name: Build web
+        run: npm run build:web
+
+  rust:
+    name: Rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Dependencias del sistema (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      # Versión fija: un stable nuevo puede traer lints nuevos y poner `clippy -D warnings` en rojo
+      # sin cambios en el código. Se sube a mano, en un PR propio (igual que en release.yml).
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      # generate_context!() exige que frontendDist (../dist) exista al compilar.
+      - name: Frontend de relleno para compilar el crate
+        shell: bash
+        run: |
+          mkdir -p dist
+          [ -f dist/index.html ] || echo '<!doctype html><title>CI</title>' > dist/index.html
+
+      - name: cargo fmt
+        if: runner.os == 'Linux'
+        working-directory: src-tauri
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: cargo test
+        working-directory: src-tauri
+        run: cargo test --locked
+
+  # Empaqueta de verdad (NSIS con su hook, .deb y AppImage) antes de etiquetar un release: los errores
+  # de bundling no aparecen con clippy ni con cargo test. Sin firma de updater (build:unsigned) y en
+  # debug para que sea más rápido. Los instaladores quedan como artefactos para la QA manual.
+  bundle:
+    name: Bundle (${{ matrix.name }})
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows NSIS
+            os: windows-latest
+            bundles: nsis
+          - name: Linux deb + AppImage
+            os: ubuntu-22.04
+            bundles: deb,appimage
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Dependencias del sistema (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: bundle
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Empaquetar (${{ matrix.bundles }})
+        run: npm run build:unsigned -- --debug --bundles ${{ matrix.bundles }}
+
+      - name: Subir instaladores de QA
+        uses: actions/upload-artifact@v7
+        with:
+          name: cuentacobro-qa-${{ runner.os }}
+          path: |
+            src-tauri/target/debug/bundle/nsis/*.exe
+            src-tauri/target/debug/bundle/deb/*.deb
+            src-tauri/target/debug/bundle/appimage/*.AppImage
+          if-no-files-found: error
+          retention-days: 14
+
+  # Check requerido por la regla de protección de `main` (github-ruleset.json: "build").
+  # `bundle` solo corre en PRs y a mano; en los push queda "skipped" y no bloquea.
+  build:
+    name: build
+    if: always()
+    needs: [web, rust, bundle]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Todos los jobs en verde
+        run: |
+          [ "${{ needs.web.result }}" = success ] && [ "${{ needs.rust.result }}" = success ] \
+            && { [ "${{ needs.bundle.result }}" = success ] || [ "${{ needs.bundle.result }}" = skipped ]; }

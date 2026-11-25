@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "pdf-export",
+  "description": "Las ventanas ocultas de exportación pueden leer los documentos imprimibles y comunicar el resultado de la carga.",
+  "windows": ["pdf-*"],
+  "permissions": ["allow-read-invoice-print-data", "allow-read-client-report-data", "allow-print-ready"]
+}

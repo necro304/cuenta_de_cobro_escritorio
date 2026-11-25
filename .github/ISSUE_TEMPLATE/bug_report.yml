@@ -1,8 +1,7 @@
 name: Reporte de Error (Bug)
-about: Crea un reporte para ayudarnos a mejorar
+description: Crea un reporte para ayudarnos a mejorar
 title: '[BUG] '
 labels: bug
-assignees: ''
 
 body:
   - type: markdown
@@ -43,4 +42,4 @@ body:
     id: environment
     attributes:
       label: Entorno
-      description: OS, Versión de Node, Versión de la App, etc.
+      description: Sistema operativo y versión (p. ej. Windows 11, macOS 14, Ubuntu 24.04), versión de CuentaCobro (Configuración → Acerca de) e instalador usado (.dmg, -setup.exe, .deb o .AppImage).

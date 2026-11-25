@@ -1,8 +1,7 @@
 name: Sugerir Mejora (Feature Request)
-about: Sugiere una idea para este proyecto
+description: Sugiere una idea para este proyecto
 title: '[FEAT] '
 labels: enhancement
-assignees: ''
 
 body:
   - type: textarea

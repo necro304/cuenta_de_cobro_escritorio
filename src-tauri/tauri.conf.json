@@ -1,0 +1,143 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CuentaCobro",
+  "mainBinaryName": "cuenta-cobro",
+  "version": "../package.json",
+  "identifier": "com.cuentacobro.app",
+  "build": {
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist",
+    "beforeDevCommand": "npm run dev:web",
+    "beforeBuildCommand": "npm run build:web",
+    "beforeBundleCommand": "node scripts/lipo-cli.mjs"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Cuenta de cobro",
+        "width": 1300,
+        "height": 800,
+        "minWidth": 640,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "dragDropEnabled": false,
+        "zoomHotkeysEnabled": true,
+        "create": false
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: blob:",
+        "font-src": "'self' data:",
+        "connect-src": "'self' ipc: http://ipc.localhost",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "frame-src": "'none'",
+        "form-action": "'self'"
+      },
+      "devCsp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: blob:",
+        "font-src": "'self' data:",
+        "connect-src": "'self' ipc: http://ipc.localhost ws://localhost:1420",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "frame-src": "'none'",
+        "form-action": "'self'"
+      },
+      "dangerousDisableAssetCspModification": [
+        "style-src"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app",
+      "dmg",
+      "nsis",
+      "deb",
+      "appimage"
+    ],
+    "createUpdaterArtifacts": true,
+    "publisher": "necro304",
+    "homepage": "https://github.com/necro304/cuenta_de_cobro_escritorio",
+    "copyright": "Copyright © 2026 necro304. Licencia MIT.",
+    "license": "MIT",
+    "licenseFile": "../LICENSE",
+    "category": "Utility",
+    "shortDescription": "Gestión de cuentas de cobro colombianas",
+    "longDescription": "Aplicación de escritorio para crear, imprimir y gestionar cuentas de cobro colombianas, con base de datos local.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": "-",
+      "hardenedRuntime": true,
+      "dmg": {
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        }
+      }
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "Spanish",
+          "English"
+        ],
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "compression": "lzma",
+        "installerHooks": "windows/installer-hooks.nsh"
+      }
+    },
+    "linux": {
+      "deb": {
+        "section": "utils",
+        "priority": "optional"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVBMkUxOTMzODRGN0U1QjYKUldTMjVmZUVNeGt1V29vaytDTGNzY1pZaGJlaXFtR2phYVV6eGZiNmZEdGtndzZsYWJPWWJXb0kK",
+      "endpoints": [
+        "https://github.com/necro304/cuenta_de_cobro_escritorio/releases/latest/download/latest.json"
+      ],
+      "requireSignedVersion": true,
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

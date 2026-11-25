@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, type Component } from 'vue'
+import { computed, ref, type Component } from 'vue'
 import { useRouter } from 'vue-router'
+import { relaunch } from '@tauri-apps/plugin-process'
 import {
   Sun,
   Moon,
@@ -9,20 +10,25 @@ import {
   DatabaseBackup,
   DatabaseZap,
   AlertTriangle,
+  Terminal,
 } from '@lucide/vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast/use-toast'
 import { getErrorMessage } from '@/lib/utils'
-import { useTheme, type ThemeMode } from '@/composables/useTheme'
+import { backupDatabase, clearBillingData, installCli, restoreDatabase } from '@/api/backend'
+import { useThemeStore, type ThemeMode } from '@/stores/theme'
+import { useUpdaterStore } from '@/stores/updater'
 import PageHeader from '@/components/PageHeader.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import { version as appVersion } from '../../package.json'
 
 const router = useRouter()
 const { toast } = useToast()
 
-const { theme, setTheme } = useTheme()
-const activeOperation = ref<'updates' | 'backup' | 'restore' | 'reset' | null>(null)
+const themeStore = useThemeStore()
+const updater = useUpdaterStore()
+const activeOperation = ref<'updates' | 'backup' | 'restore' | 'reset' | 'cli' | null>(null)
 const pendingConfirmation = ref<'restore' | 'reset' | null>(null)
 
 const themeOptions: { value: ThemeMode; label: string; icon: Component }[] = [
@@ -31,23 +37,30 @@ const themeOptions: { value: ThemeMode; label: string; icon: Component }[] = [
   { value: 'auto', label: 'Sistema', icon: Monitor },
 ]
 
-import { version as appVersion } from '../../package.json'
+const updateButtonLabel = computed(() => {
+  if (activeOperation.value === 'updates') return 'Buscando...'
+  if (updater.phase === 'downloading') return 'Descargando...'
+  if (updater.phase === 'installed') return 'Reiniciar para actualizar'
+  return 'Buscar actualizaciones'
+})
 
 const handleCheckUpdates = async () => {
   activeOperation.value = 'updates'
   try {
-    const result = await window.electronAPI.checkForUpdates()
-    // Los eventos de autoUpdater en el main process manejan los diálogos si hay
-    // actualización; aquí solo avisamos cuando ya está al día.
-    if (result?.updateInfo?.version === appVersion) {
-      toast({ title: 'Al día', description: 'Ya tienes la última versión instalada.' })
+    // Si hay versión nueva, el store abre UpdateDialog; aquí solo los otros casos.
+    const result = await updater.checkManually()
+    if (result.kind === 'up-to-date') {
+      toast({
+        title: 'Al día',
+        description: `Ya tienes la última versión instalada (v${appVersion}).`,
+      })
+    } else if (result.kind === 'error') {
+      toast({
+        title: 'Error',
+        description: 'No se pudo buscar actualizaciones.',
+        variant: 'destructive',
+      })
     }
-  } catch {
-    toast({
-      title: 'Error',
-      description: 'No se pudo buscar actualizaciones.',
-      variant: 'destructive',
-    })
   } finally {
     activeOperation.value = null
   }
@@ -56,18 +69,30 @@ const handleCheckUpdates = async () => {
 const handleBackup = async () => {
   activeOperation.value = 'backup'
   try {
-    const result = await window.electronAPI.dbBackup()
-    if (result.success) {
+    const result = await backupDatabase()
+    if (result.status === 'done') {
       toast({ title: 'Respaldo exitoso', description: result.message })
-    } else if (result.message !== 'Operación cancelada.') {
+    } else if (result.status === 'failed') {
       toast({ title: 'Error', description: result.message, variant: 'destructive' })
     }
-  } catch (error) {
-    toast({
-      title: 'Error del sistema',
-      description: getErrorMessage(error),
-      variant: 'destructive',
-    })
+  } finally {
+    activeOperation.value = null
+  }
+}
+
+const handleInstallCli = async () => {
+  activeOperation.value = 'cli'
+  try {
+    const result = await installCli()
+    if (result.status === 'done') {
+      toast({ title: 'CLI instalada', description: result.message })
+    } else if (result.status === 'failed') {
+      toast({
+        title: 'No se pudo instalar la CLI',
+        description: result.message,
+        variant: 'destructive',
+      })
+    }
   } finally {
     activeOperation.value = null
   }
@@ -77,17 +102,21 @@ const handleRestore = () => {
   pendingConfirmation.value = 'restore'
 }
 
-const restoreDatabase = async () => {
+const restoreDatabaseAndRelaunch = async () => {
   activeOperation.value = 'restore'
   try {
-    const result = await window.electronAPI.dbRestore()
-    if (!result.success && result.message !== 'Operación cancelada.') {
+    const result = await restoreDatabase()
+    if (result.status === 'done') {
+      toast({ title: 'Restauración completa', description: 'Reiniciando la aplicación...' })
+      await relaunch()
+    } else if (result.status === 'failed') {
       toast({ title: 'Error al restaurar', description: result.message, variant: 'destructive' })
     }
   } catch (error) {
+    // Solo llega aquí si relaunch() falla: la base ya quedó restaurada.
     toast({
-      title: 'Error del sistema',
-      description: getErrorMessage(error),
+      title: 'Reinicia la aplicación',
+      description: `La base se restauró pero no se pudo reiniciar automáticamente: ${getErrorMessage(error)}`,
       variant: 'destructive',
     })
   } finally {
@@ -102,18 +131,16 @@ const resetDatabase = () => {
 const clearDatabase = async () => {
   activeOperation.value = 'reset'
   try {
-    await window.electronAPI.dbRun('DELETE FROM invoice_items')
-    await window.electronAPI.dbRun('DELETE FROM invoices')
-    await window.electronAPI.dbRun('DELETE FROM clients')
+    await clearBillingData()
     toast({
       title: 'Datos eliminados',
-      description: 'Todos los datos han sido borrados correctamente.',
+      description: 'Se eliminaron los clientes, las cuentas de cobro, sus conceptos y abonos.',
     })
     router.push('/')
-  } catch {
+  } catch (error) {
     toast({
       title: 'Error',
-      description: 'No se pudo completar la operación',
+      description: getErrorMessage(error),
       variant: 'destructive',
     })
   } finally {
@@ -123,9 +150,9 @@ const clearDatabase = async () => {
 
 const confirmOperation = async () => {
   const operation = pendingConfirmation.value
-  if (!operation) return
+  if (!operation || activeOperation.value) return
 
-  if (operation === 'restore') await restoreDatabase()
+  if (operation === 'restore') await restoreDatabaseAndRelaunch()
   else await clearDatabase()
 
   pendingConfirmation.value = null
@@ -164,11 +191,13 @@ const confirmOperation = async () => {
               <Button
                 variant="outline"
                 size="sm"
-                :disabled="activeOperation !== null"
+                :disabled="activeOperation !== null || updater.isBusy"
                 @click="handleCheckUpdates"
               >
-                <RefreshCw :class="activeOperation === 'updates' ? 'animate-spin' : ''" />
-                {{ activeOperation === 'updates' ? 'Buscando...' : 'Buscar actualizaciones' }}
+                <RefreshCw
+                  :class="activeOperation === 'updates' || updater.isBusy ? 'animate-spin' : ''"
+                />
+                {{ updateButtonLabel }}
               </Button>
             </div>
           </div>
@@ -188,12 +217,12 @@ const confirmOperation = async () => {
               type="button"
               class="flex min-h-20 flex-col items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold transition-[background-color,color,box-shadow,transform] active:scale-[0.98]"
               :class="
-                theme === option.value
+                themeStore.mode === option.value
                   ? 'bg-card text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               "
-              :aria-pressed="theme === option.value"
-              @click="setTheme(option.value)"
+              :aria-pressed="themeStore.mode === option.value"
+              @click="themeStore.setMode(option.value)"
             >
               <component :is="option.icon" class="w-4 h-4" />
               {{ option.label }}
@@ -212,8 +241,8 @@ const confirmOperation = async () => {
             <button
               type="button"
               :disabled="activeOperation !== null"
-              @click="handleBackup"
               class="group flex min-h-32 w-full items-start gap-4 rounded-lg bg-secondary/55 p-5 text-left transition-[background-color,transform] hover:bg-accent/55 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
+              @click="handleBackup"
             >
               <span
                 class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground"
@@ -229,8 +258,8 @@ const confirmOperation = async () => {
             <button
               type="button"
               :disabled="activeOperation !== null"
-              @click="handleRestore"
               class="group flex min-h-32 w-full items-start gap-4 rounded-lg bg-secondary/55 p-5 text-left transition-[background-color,transform] hover:bg-accent/55 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
+              @click="handleRestore"
             >
               <span
                 class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground"
@@ -244,6 +273,22 @@ const confirmOperation = async () => {
               >
             </button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card class="lg:col-span-12">
+        <CardHeader>
+          <CardTitle>CLI para agentes</CardTitle>
+          <CardDescription
+            >Permite que un agente de IA, o tú desde la terminal, consulte y modifique tus datos con
+            el comando <code class="font-mono">cuentacobro-cli</code>.</CardDescription
+          >
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" :disabled="activeOperation !== null" @click="handleInstallCli">
+            <Terminal />
+            {{ activeOperation === 'cli' ? 'Instalando...' : 'Instalar en el PATH' }}
+          </Button>
         </CardContent>
       </Card>
 

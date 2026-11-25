@@ -1,79 +1,69 @@
 import js from '@eslint/js'
-import ts from '@typescript-eslint/eslint-plugin'
-import tsParser from '@typescript-eslint/parser'
-import vuePlugin from 'eslint-plugin-vue'
-import vueParser from 'vue-eslint-parser'
+import prettier from 'eslint-config-prettier/flat'
+import { defineConfig, globalIgnores } from 'eslint/config'
+import pluginVue from 'eslint-plugin-vue'
 import globals from 'globals'
+import tseslint from 'typescript-eslint'
 
-// eslint-plugin-vue 10: los configs legacy (vue3-essential) fueron removidos;
-// flat/essential es un array de flat configs — combinamos sus rules
-const vueEssentialRules = vuePlugin.configs['flat/essential']
-  .map((c) => c.rules ?? {})
-  .reduce((acc, rules) => ({ ...acc, ...rules }), {})
+export default defineConfig(
+  globalIgnores([
+    'dist/**',
+    'coverage/**',
+    '.vitest/**',
+    'src-tauri/target/**',
+    'src-tauri/gen/**',
+    'release/**',
+    'dist-electron/**',
+  ]),
 
-export default [
-  { ignores: ['dist/**', 'dist-electron/**', 'release/**', 'node_modules/**'] },
+  js.configs.recommended,
+  tseslint.configs.recommended,
+  // flat/recommended registra vue-eslint-parser para *.vue: debe ir DESPUÉS de typescript-eslint.
+  pluginVue.configs['flat/recommended'],
 
-  // CommonJS config files (tailwind.config.js, postcss.config.js)
+  // <script lang="ts"> dentro de los SFC se parsea con el parser de typescript-eslint.
   {
-    files: ['*.config.js', '*.config.cjs'],
-    languageOptions: { globals: { ...globals.node } },
+    files: ['**/*.vue'],
+    languageOptions: {
+      parserOptions: {
+        parser: tseslint.parser,
+        extraFileExtensions: ['.vue'],
+        sourceType: 'module',
+      },
+    },
   },
 
-  // Electron main process (Node.js environment)
+  // Frontend (webview de Tauri): entorno navegador.
   {
-    files: ['electron/**/*.ts', 'vite.config.ts'],
+    files: ['src/**/*.{ts,vue}'],
     languageOptions: {
-      parser: tsParser,
+      globals: { ...globals.browser },
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'vue/multi-word-component-names': 'off',
+    },
+  },
+
+  // Archivos ejecutados por Node: configuración (vite, vitest, eslint, prettier) y scripts/.
+  {
+    files: ['*.config.{js,ts,mjs,cjs}', 'scripts/**/*.mjs'],
+    languageOptions: {
       globals: { ...globals.node },
     },
-    plugins: { '@typescript-eslint': ts },
-    rules: {
-      ...ts.configs.recommended.rules,
-      '@typescript-eslint/no-explicit-any': 'error',
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
-    },
   },
 
-  // Vue renderer process (Browser + Electron renderer)
+  // Componentes shadcn-vue generados: se relajan reglas que chocan con el código generado.
   {
-    files: ['src/**/*.ts'],
-    languageOptions: {
-      parser: tsParser,
-      globals: { ...globals.browser },
-    },
-    plugins: { '@typescript-eslint': ts },
-    rules: {
-      ...ts.configs.recommended.rules,
-      '@typescript-eslint/no-explicit-any': 'error',
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
-    },
-  },
-
-  // Vue SFC files
-  {
-    files: ['src/**/*.vue'],
-    languageOptions: {
-      parser: vueParser,
-      parserOptions: { parser: tsParser, sourceType: 'module' },
-      globals: { ...globals.browser },
-    },
-    plugins: { vue: vuePlugin, '@typescript-eslint': ts },
-    processor: vuePlugin.processors['.vue'],
-    rules: {
-      ...vueEssentialRules,
-      'vue/multi-word-component-names': 'off',
-      '@typescript-eslint/no-explicit-any': 'error',
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
-    },
-  },
-
-  // Shadcn UI components — relax unused-vars (auto-generated code)
-  {
-    files: ['src/components/ui/**/*.vue', 'src/components/ui/**/*.ts'],
+    files: ['src/components/ui/**/*.{ts,vue}'],
     rules: {
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
+      'vue/require-default-prop': 'off',
     },
   },
-]
+
+  // Siempre al final: desactiva las reglas de formato que pelean con Prettier.
+  prettier,
+)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import logoUrl from '@/assets/logo.svg'
 import {
@@ -12,6 +12,9 @@ import {
   PanelLeftOpen,
   Plus,
 } from '@lucide/vue'
+import { useUpdaterStore } from '@/stores/updater'
+import { legacyMigrationNotice } from '@/api/backend'
+import { useToast } from '@/components/ui/toast/use-toast'
 
 const route = useRoute()
 const isCollapsed = ref(false)
@@ -28,6 +31,34 @@ const isActive = (path: string) =>
   path === '/' ? route.path === '/' : route.path === path || route.path.startsWith(`${path}/`)
 
 const sidebarWidth = computed(() => (isCollapsed.value ? 'w-[76px]' : 'w-[248px]'))
+
+// Solo la ventana principal monta este layout: las vistas /print y /client-report
+// (también usadas por las ventanas ocultas de PDF) nunca disparan el chequeo.
+const updater = useUpdaterStore()
+const { toast } = useToast()
+
+// Primer arranque tras importar la BD de la versión Electron: Rust entrega el aviso una sola vez.
+const showLegacyMigrationNotice = async () => {
+  const notice = await legacyMigrationNotice()
+  if (!notice) return
+  const windowsHint =
+    notice.os === 'windows'
+      ? ' Si la versión anterior sigue en Configuración › Aplicaciones, puedes desinstalarla; tus datos ya están aquí.'
+      : ''
+  toast({
+    title: 'Datos importados',
+    description:
+      'Importamos tus clientes y cuentas de cobro desde la versión anterior. No sigas usando CuentaCobro 1.x: lo que cambies allí ya no aparecerá aquí.' +
+      windowsHint,
+    // Rust ya lo marcó como mostrado: no se cierra solo, queda hasta que el usuario lo cierre.
+    duration: Number.POSITIVE_INFINITY,
+  })
+}
+
+onMounted(() => {
+  void updater.checkOnStartup()
+  void showLegacyMigrationNotice()
+})
 
 watch(
   () => route.fullPath,

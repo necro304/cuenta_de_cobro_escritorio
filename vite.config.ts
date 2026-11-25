@@ -1,44 +1,37 @@
-import { defineConfig } from 'vite'
-import path from 'node:path'
-import electron from 'vite-plugin-electron/simple'
+import { fileURLToPath, URL } from 'node:url'
+import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vite'
 
-// https://vitejs.dev/config/
+// Variables que inyecta la CLI de Tauri: https://v2.tauri.app/reference/environment-variables/
+const host = process.env.TAURI_DEV_HOST
+const isDebug = Boolean(process.env.TAURI_ENV_DEBUG)
+
 export default defineConfig({
+  plugins: [vue(), tailwindcss()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  plugins: [
-    vue(),
-    electron({
-      main: {
-        // Shortcut of `build.lib.entry`.
-        entry: 'electron/main.ts',
-        vite: {
-          build: {
-            rolldownOptions: {
-              // Módulos nativos/CJS resueltos desde node_modules en runtime
-              // (electron-builder los incluye al empaquetar)
-              external: ['better-sqlite3', 'electron-updater'],
-            },
-          },
-        },
-      },
-      preload: {
-        // Shortcut of `build.rollupOptions.input`.
-        // Preload scripts may contain Web assets, so use the `build.rollupOptions.input` instead `build.lib.entry`.
-        input: path.join(__dirname, 'electron/preload.ts'),
-      },
-      // Ployfill the Electron and Node.js API for Renderer process.
-      // If you want use Node.js in Renderer process, the `nodeIntegration` needs to be enabled in the Main process.
-      // See 👉 https://github.com/electron-vite/vite-plugin-electron-renderer
-      renderer:
-        process.env.NODE_ENV === 'test'
-          ? // https://github.com/electron-vite/vite-plugin-electron-renderer/issues/78#issuecomment-2053600808
-            undefined
-          : {},
-    }),
-  ],
+  // No limpiar la terminal: `tauri dev` imprime ahí los errores de compilación de Rust.
+  clearScreen: false,
+  server: {
+    // Debe coincidir con build.devUrl de src-tauri/tauri.conf.json.
+    port: 1420,
+    strictPort: true,
+    host: host || false,
+    hmr: host ? { protocol: 'ws', host, port: 1421 } : undefined,
+    watch: {
+      // El backend Rust lo vigila la CLI de Tauri, no Vite.
+      ignored: ['**/src-tauri/**'],
+    },
+  },
+  envPrefix: ['VITE_', 'TAURI_ENV_*'],
+  build: {
+    // Sin `target` explícito: el default de Vite 8 ('baseline-widely-available' =
+    // chrome111 / edge111 / firefox114 / safari16.4) coincide con el mínimo que exige Tailwind 4.
+    minify: !isDebug,
+    sourcemap: isDebug,
+  },
 })

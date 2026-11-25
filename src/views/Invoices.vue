@@ -32,16 +32,26 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/toast/use-toast'
-import { useProfile } from '@/composables/useProfile'
+import { useProfileStore } from '@/stores/profile'
+import {
+  dbRun,
+  deleteInvoicePayment,
+  exportInvoicePdf,
+  invoiceLedger,
+  invoicePaymentHistory,
+  saveInvoicePayment,
+  type LedgerInvoice,
+} from '@/api/backend'
 import { formatCurrency, formatDate, getTodayDate } from '@/lib/format'
-import { calculateBalance, determineStatus } from '@/lib/invoice'
+import { centsToMoney, formatMoneyForDisplay } from '@/lib/cuentaDeCobroMoney'
 import SignatureAskDialog from '@/components/SignatureAskDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
-import type { Invoice, InvoicePayment } from '@/types'
+import type { InvoicePayment } from '@/types'
+import type { CuentaDeCobroSummary } from '@/types/cuentaDeCobro'
 
 const router = useRouter()
 const { toast } = useToast()
-const invoices = ref<Invoice[]>([])
+const invoices = ref<LedgerInvoice[]>([])
 const isLoading = ref(true)
 const loadError = ref(false)
 const exportingInvoiceId = ref<number | null>(null)
@@ -49,22 +59,22 @@ const pendingDeletion = ref<{ kind: 'payment' | 'invoice'; id: number } | null>(
 const isDeleting = ref(false)
 
 // Perfil para la descarga rápida de PDF (plantilla predeterminada y modo de firma)
-const { profile, loadProfile } = useProfile()
+const profileStore = useProfileStore()
 const isAskDialogOpen = ref(false)
-const pendingPdfInvoice = ref<Invoice | null>(null)
+const pendingPdfInvoice = ref<LedgerInvoice | null>(null)
 
-const exportPdf = async (invoice: Invoice, includeSignature: boolean) => {
+const exportPdf = async (invoice: LedgerInvoice, includeSignature: boolean) => {
   exportingInvoiceId.value = invoice.id
   try {
-    const result = await window.electronAPI.exportPdf({
+    const result = await exportInvoicePdf({
       invoiceId: invoice.id,
       invoiceNumber: invoice.number,
-      template: profile.value.default_template ?? 'default',
+      template: profileStore.defaultTemplate,
       includeSignature,
     })
-    if (result.success) {
+    if (result.status === 'done') {
       toast({ title: 'PDF descargado', description: result.message })
-    } else if (result.message !== 'Operación cancelada.') {
+    } else if (result.status === 'failed') {
       toast({ title: 'Error', description: result.message, variant: 'destructive' })
     }
   } finally {
@@ -72,14 +82,13 @@ const exportPdf = async (invoice: Invoice, includeSignature: boolean) => {
   }
 }
 
-const downloadPdf = (invoice: Invoice) => {
-  if (profile.value.signature && profile.value.signature_mode === 'ask') {
+const downloadPdf = (invoice: LedgerInvoice) => {
+  if (profileStore.asksForSignature) {
     pendingPdfInvoice.value = invoice
     isAskDialogOpen.value = true
     return
   }
-  const withSignature = profile.value.signature_mode === 'auto' && !!profile.value.signature
-  exportPdf(invoice, withSignature)
+  exportPdf(invoice, profileStore.signsByDefault)
 }
 
 const onSignatureChoice = (withSignature: boolean) => {
@@ -97,10 +106,10 @@ const itemsPerPage = ref(10)
 const filteredInvoices = computed(() => {
   return invoices.value.filter((invoice) => {
     const matchesSearch =
-      invoice.client_name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      invoice.clientName?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       invoice.number.toString().includes(searchQuery.value)
 
-    const matchesStatus = statusFilter.value === 'all' || invoice.status === statusFilter.value
+    const matchesStatus = statusFilter.value === 'all' || invoice.summary.paymentStatus === statusFilter.value
 
     return matchesSearch && matchesStatus
   })
@@ -117,40 +126,45 @@ const paginatedInvoices = computed(() => {
   return filteredInvoices.value.slice(start, end)
 })
 
-const financialSummary = computed(() => {
-  const summary = invoices.value.reduce(
-    (result, invoice) => {
-      const paid = Math.min(Math.max(invoice.paid_amount ?? 0, 0), invoice.total)
-      result.totalIssued += invoice.total
-      result.totalCollected += paid
-      if (invoice.status !== 'paid') result.pendingCount += 1
-      return result
-    },
-    { totalIssued: 0, totalCollected: 0, pendingCount: 0 },
-  )
+const moneyInCents = (money: string): bigint => BigInt(money.replace('.', ''))
 
+const financialSummary = computed(() => {
+  let issued = 0n
+  let balance = 0n
+  let pendingCount = 0
+  for (const { summary } of invoices.value) {
+    issued += moneyInCents(summary.total)
+    balance += moneyInCents(summary.balance)
+    if (summary.paymentStatus !== 'paid') pendingCount += 1
+  }
+  const collected = issued - balance
   return {
-    ...summary,
-    balance: Math.max(summary.totalIssued - summary.totalCollected, 0),
-    collectionRate:
-      summary.totalIssued > 0 ? (summary.totalCollected / summary.totalIssued) * 100 : 0,
+    totalIssued: centsToMoney(issued),
+    totalCollected: centsToMoney(collected),
+    balance: centsToMoney(balance),
+    pendingCount,
+    collectionRate: issued > 0n ? (Number(collected) / Number(issued)) * 100 : 0,
   }
 })
 
 const statusCounts = computed(() => ({
   all: invoices.value.length,
-  draft: invoices.value.filter((invoice) => invoice.status === 'draft').length,
-  partially_paid: invoices.value.filter((invoice) => invoice.status === 'partially_paid').length,
-  paid: invoices.value.filter((invoice) => invoice.status === 'paid').length,
+  draft: invoices.value.filter((invoice) => invoice.summary.paymentStatus === 'draft').length,
+  partially_paid: invoices.value.filter((invoice) =>
+    invoice.summary.paymentStatus === 'partially_paid',
+  ).length,
+  paid: invoices.value.filter((invoice) => invoice.summary.paymentStatus === 'paid').length,
 }))
 
 const filteredAmount = computed(() =>
-  filteredInvoices.value.reduce((total, invoice) => total + invoice.total, 0),
+  centsToMoney(filteredInvoices.value.reduce(
+    (total, invoice) => total + moneyInCents(invoice.summary.total), 0n,
+  )),
 )
 
-const getPaymentProgress = (invoice: Invoice) => {
-  if (invoice.total <= 0) return 0
-  return Math.min(Math.max(((invoice.paid_amount ?? 0) / invoice.total) * 100, 0), 100)
+const getPaymentProgress = (invoice: LedgerInvoice) => {
+  const total = Number(invoice.summary.total)
+  return total > 0 ? Math.min((Number(invoice.summary.paidAmount) / total) * 100, 100) : 0
 }
 
 watch([searchQuery, statusFilter], () => {
@@ -164,31 +178,23 @@ const clearFilters = () => {
 
 // Payments Modal State
 const isPaymentsModalOpen = ref(false)
-const selectedInvoice = ref<Invoice | null>(null)
+const selectedInvoice = ref<LedgerInvoice | null>(null)
 const payments = ref<InvoicePayment[]>([])
 const newPayment = ref({
   date: getTodayDate(),
-  amount: 0,
+  amount: '',
   notes: '',
 })
 
-const balancePendiente = computed(() => {
-  if (!selectedInvoice.value) return 0
-  const totalPagado = payments.value.reduce((sum, p) => sum + p.amount, 0)
-  return calculateBalance(selectedInvoice.value.total, totalPagado)
-})
+const isSavingPayment = ref(false)
+const isLoadingPayments = ref(false)
+const paymentsLoadError = ref(false)
 
 const loadInvoices = async () => {
   isLoading.value = true
   loadError.value = false
   try {
-    invoices.value = await window.electronAPI.dbQuery<Invoice>(`
-      SELECT i.*, c.name as client_name,
-      COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0) as paid_amount
-      FROM invoices i
-      JOIN clients c ON i.client_id = c.id
-      ORDER BY i.date DESC, i.number DESC
-    `)
+    invoices.value = await invoiceLedger()
   } catch {
     loadError.value = true
     toast({
@@ -201,73 +207,57 @@ const loadInvoices = async () => {
   }
 }
 
-const openPayments = async (invoice: Invoice) => {
+const updateSummary = (invoice: LedgerInvoice, summary: CuentaDeCobroSummary) => {
+  invoice.summary = summary
+  newPayment.value.amount = summary.balance
+}
+
+const loadPayments = async (invoice: LedgerInvoice) => {
+  isLoadingPayments.value = true
+  paymentsLoadError.value = false
+  try {
+    const history = await invoicePaymentHistory(invoice.id)
+    payments.value = history.payments
+    updateSummary(invoice, history.summary)
+  } catch {
+    paymentsLoadError.value = true
+  } finally {
+    isLoadingPayments.value = false
+  }
+}
+
+const openPayments = async (invoice: LedgerInvoice) => {
+  if (isSavingPayment.value || isDeleting.value || isLoadingPayments.value) return
   selectedInvoice.value = invoice
-  newPayment.value = {
-    date: getTodayDate(),
-    amount: calculateBalance(invoice.total, invoice.paid_amount || 0),
-    notes: '',
-  }
-  await loadPayments(invoice.id)
+  newPayment.value = { date: getTodayDate(), amount: invoice.summary.balance, notes: '' }
+  payments.value = []
   isPaymentsModalOpen.value = true
-}
-
-const loadPayments = async (invoiceId: number) => {
-  payments.value = await window.electronAPI.dbQuery<InvoicePayment>(
-    'SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY date DESC, id DESC',
-    [invoiceId],
-  )
-}
-
-const checkAndUpdateInvoiceStatus = async (invoiceId: number) => {
-  await loadInvoices() // Ensure we have latest paid_amount
-  const invoice = invoices.value.find((i) => i.id === invoiceId)
-  if (!invoice) return
-
-  const newStatus = determineStatus(invoice.total, invoice.paid_amount || 0)
-
-  if (newStatus !== invoice.status) {
-    await window.electronAPI.dbRun('UPDATE invoices SET status = ? WHERE id = ?', [
-      newStatus,
-      invoiceId,
-    ])
-    await loadInvoices()
-  }
-}
-
-const validatePayment = (): string | null => {
-  if (newPayment.value.amount <= 0) return 'El monto debe ser mayor a 0'
-  return null
+  await loadPayments(invoice)
 }
 
 const savePayment = async () => {
-  if (!selectedInvoice.value) return
-  const error = validatePayment()
-  if (error) {
-    toast({ title: 'No se pudo registrar el abono', description: error, variant: 'destructive' })
-    return
-  }
-
+  const invoice = selectedInvoice.value
+  if (
+    !invoice || isSavingPayment.value || isDeleting.value ||
+    isLoadingPayments.value || paymentsLoadError.value
+  ) return
+  isSavingPayment.value = true
   try {
-    await window.electronAPI.dbRun(
-      'INSERT INTO invoice_payments (invoice_id, date, amount, notes) VALUES (?, ?, ?, ?)',
-      [
-        selectedInvoice.value.id,
-        newPayment.value.date,
-        newPayment.value.amount,
-        newPayment.value.notes,
-      ],
-    )
-
-    await loadPayments(selectedInvoice.value.id)
-    await checkAndUpdateInvoiceStatus(selectedInvoice.value.id)
-
-    newPayment.value.amount = balancePendiente.value
+    const summary = await saveInvoicePayment({ invoiceId: invoice.id, ...newPayment.value })
+    updateSummary(invoice, summary)
     newPayment.value.notes = ''
-    toast({ title: 'Abono registrado', description: 'El pago parcial se ha guardado.' })
-  } catch (e) {
-    toast({ title: 'Error', description: 'No se pudo guardar el abono', variant: 'destructive' })
+    toast({ title: 'Abono registrado' })
+  } catch (error) {
+    toast({
+      title: 'No se pudo registrar el abono',
+      description: error instanceof Error ? error.message : 'Intenta guardar el abono nuevamente.',
+      variant: 'destructive',
+    })
+    return
+  } finally {
+    isSavingPayment.value = false
   }
+  await loadPayments(invoice)
 }
 
 const deletePayment = (id: number) => {
@@ -284,18 +274,20 @@ const closeDeletionDialog = (open: boolean) => {
 
 const confirmDeletion = async () => {
   const deletion = pendingDeletion.value
-  if (!deletion) return
+  if (!deletion || isDeleting.value || isSavingPayment.value) return
 
   isDeleting.value = true
   try {
     if (deletion.kind === 'payment') {
-      if (!selectedInvoice.value) return
-      await window.electronAPI.dbRun('DELETE FROM invoice_payments WHERE id = ?', [deletion.id])
-      await loadPayments(selectedInvoice.value.id)
-      await checkAndUpdateInvoiceStatus(selectedInvoice.value.id)
+      const invoice = selectedInvoice.value
+      if (!invoice) return
+      const summary = await deleteInvoicePayment(invoice.id, deletion.id)
+      updateSummary(invoice, summary)
       toast({ title: 'Abono eliminado' })
+      pendingDeletion.value = null
+      await loadPayments(invoice)
     } else {
-      await window.electronAPI.dbRun('DELETE FROM invoices WHERE id = ?', [deletion.id])
+      await dbRun('DELETE FROM invoices WHERE id = ?', [deletion.id])
       await loadInvoices()
       toast({ title: 'Cuenta eliminada' })
     }
@@ -317,7 +309,8 @@ const handleNewInvoice = () => {
 
 onMounted(() => {
   loadInvoices()
-  loadProfile()
+  // Sin await: si falla, la descarga rápida usa plantilla 'default' y sin firma
+  profileStore.load().catch(() => undefined)
 })
 </script>
 
@@ -357,7 +350,7 @@ onMounted(() => {
             </div>
             <div>
               <p class="metric-value text-[clamp(2.25rem,4vw,3.75rem)] font-semibold leading-none">
-                ${{ formatCurrency(financialSummary.balance) }}
+                ${{ formatMoneyForDisplay(financialSummary.balance) }}
               </p>
               <div class="mt-5 flex items-center gap-3">
                 <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-primary-foreground/15">
@@ -382,7 +375,7 @@ onMounted(() => {
               <FileText class="size-5 text-primary" :stroke-width="1.8" />
             </div>
             <div>
-              <p class="metric-value text-2xl font-semibold">${{ formatCurrency(financialSummary.totalIssued) }}</p>
+              <p class="metric-value text-2xl font-semibold">${{ formatMoneyForDisplay(financialSummary.totalIssued) }}</p>
               <p class="mt-2 text-xs text-muted-foreground">en {{ statusCounts.all }} cuentas</p>
             </div>
           </div>
@@ -392,7 +385,7 @@ onMounted(() => {
               <TrendingUp class="size-5 text-[hsl(var(--success))]" :stroke-width="1.8" />
             </div>
             <div>
-              <p class="metric-value text-2xl font-semibold">${{ formatCurrency(financialSummary.totalCollected) }}</p>
+              <p class="metric-value text-2xl font-semibold">${{ formatMoneyForDisplay(financialSummary.totalCollected) }}</p>
               <p class="mt-2 text-xs text-muted-foreground">abonos acumulados</p>
             </div>
           </div>
@@ -459,7 +452,7 @@ onMounted(() => {
       </div>
       <div class="flex flex-wrap items-center justify-between gap-2 bg-secondary/25 px-4 py-3 text-xs text-muted-foreground">
         <p><span class="font-semibold text-foreground">{{ filteredInvoices.length }}</span> resultados</p>
-        <p class="metric-value">Valor filtrado: <span class="font-semibold text-foreground">${{ formatCurrency(filteredAmount) }}</span></p>
+        <p class="metric-value">Valor filtrado: <span class="font-semibold text-foreground">${{ formatMoneyForDisplay(filteredAmount) }}</span></p>
       </div>
     </section>
 
@@ -507,15 +500,15 @@ onMounted(() => {
                 <p class="mt-1 text-xs text-muted-foreground">{{ formatDate(invoice.date) }}</p>
               </td>
               <td>
-                <p class="max-w-64 truncate font-semibold">{{ invoice.client_name }}</p>
+                <p class="max-w-64 truncate font-semibold">{{ invoice.clientName }}</p>
                 <p class="mt-1 text-xs text-muted-foreground">Cuenta de cobro</p>
               </td>
               <td>
                 <div class="flex items-end justify-between gap-3">
                   <div>
-                    <p class="metric-value font-semibold">${{ formatCurrency(invoice.total) }}</p>
+                    <p class="metric-value font-semibold">${{ formatMoneyForDisplay(invoice.summary.total) }}</p>
                     <p class="mt-1 text-[11px] text-muted-foreground">
-                      Recaudado ${{ formatCurrency(invoice.paid_amount || 0) }}
+                      Recaudado ${{ formatMoneyForDisplay(invoice.summary.paidAmount) }}
                     </p>
                   </div>
                   <span class="metric-value text-[11px] font-semibold text-muted-foreground">
@@ -525,20 +518,20 @@ onMounted(() => {
                 <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
                   <div
                     class="h-full rounded-full transition-[width] duration-500"
-                    :class="invoice.status === 'paid' ? 'bg-[hsl(var(--success))]' : 'bg-primary'"
+                    :class="invoice.summary.paymentStatus === 'paid' ? 'bg-[hsl(var(--success))]' : 'bg-primary'"
                     :style="{ width: `${getPaymentProgress(invoice)}%` }"
                   ></div>
                 </div>
               </td>
               <td class="text-right">
-                <p class="metric-value font-semibold" :class="invoice.status === 'paid' ? 'text-[hsl(var(--success))]' : ''">
-                  ${{ formatCurrency(calculateBalance(invoice.total, invoice.paid_amount || 0)) }}
+                <p class="metric-value font-semibold" :class="invoice.summary.paymentStatus === 'paid' ? 'text-[hsl(var(--success))]' : ''">
+                  ${{ formatMoneyForDisplay(invoice.summary.balance) }}
                 </p>
                 <p class="mt-1 text-[11px] text-muted-foreground">
-                  {{ invoice.status === 'paid' ? 'Saldada' : 'Pendiente' }}
+                  {{ invoice.summary.paymentStatus === 'paid' ? 'Saldada' : 'Pendiente' }}
                 </p>
               </td>
-              <td><StatusBadge :status="invoice.status" /></td>
+              <td><StatusBadge :status="invoice.summary.paymentStatus" /></td>
               <td>
                 <div class="flex items-center justify-end gap-1.5">
                   <button
@@ -644,25 +637,25 @@ onMounted(() => {
                 <p class="font-mono text-sm font-semibold text-primary">#{{ invoice.number }}</p>
                 <span class="text-xs text-muted-foreground">{{ formatDate(invoice.date) }}</span>
               </div>
-              <h2 class="mt-2 truncate text-lg font-semibold tracking-[-0.025em]">{{ invoice.client_name }}</h2>
+              <h2 class="mt-2 truncate text-lg font-semibold tracking-[-0.025em]">{{ invoice.clientName }}</h2>
             </div>
-            <StatusBadge :status="invoice.status" />
+            <StatusBadge :status="invoice.summary.paymentStatus" />
           </div>
 
           <div class="mx-4 grid grid-cols-2 gap-4 rounded-xl bg-secondary/60 p-4">
             <div>
               <p class="text-[11px] font-medium text-muted-foreground">VALOR EMITIDO</p>
               <p class="metric-value mt-1.5 text-lg font-semibold">
-                ${{ formatCurrency(invoice.total) }}
+                ${{ formatMoneyForDisplay(invoice.summary.total) }}
               </p>
               <p class="mt-1 text-[11px] text-muted-foreground">
-                Recaudado ${{ formatCurrency(invoice.paid_amount || 0) }}
+                Recaudado ${{ formatMoneyForDisplay(invoice.summary.paidAmount) }}
               </p>
             </div>
             <div class="border-l pl-4 text-right">
               <p class="text-[11px] font-medium text-muted-foreground">SALDO</p>
-              <p class="metric-value mt-1.5 text-lg font-semibold" :class="invoice.status === 'paid' ? 'text-[hsl(var(--success))]' : ''">
-                ${{ formatCurrency(calculateBalance(invoice.total, invoice.paid_amount || 0)) }}
+              <p class="metric-value mt-1.5 text-lg font-semibold" :class="invoice.summary.paymentStatus === 'paid' ? 'text-[hsl(var(--success))]' : ''">
+                ${{ formatMoneyForDisplay(invoice.summary.balance) }}
               </p>
               <p class="metric-value mt-1 text-[11px] text-muted-foreground">
                 {{ getPaymentProgress(invoice).toFixed(0) }}% pagado
@@ -790,30 +783,35 @@ onMounted(() => {
           <DialogTitle class="text-2xl"
             >Abonos de la cuenta #{{ selectedInvoice?.number }}</DialogTitle
           >
-          <DialogDescription>{{ selectedInvoice?.client_name }}</DialogDescription>
+          <DialogDescription>{{ selectedInvoice?.clientName }}</DialogDescription>
         </DialogHeader>
 
-        <div class="space-y-5 text-sm">
+        <div v-if="selectedInvoice" class="space-y-5 text-sm">
           <div class="grid grid-cols-3 gap-3 rounded-xl bg-secondary/70 p-4">
             <div>
               <p class="text-xs text-muted-foreground">Total</p>
               <p class="metric-value mt-1 font-semibold">
-                ${{ formatCurrency(selectedInvoice?.total) }}
+                ${{ formatMoneyForDisplay(selectedInvoice.summary.total) }}
               </p>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">Pagado</p>
               <p class="metric-value mt-1 font-semibold text-[hsl(var(--success))]">
-                ${{ formatCurrency((selectedInvoice?.total ?? 0) - balancePendiente) }}
+                ${{ formatMoneyForDisplay(selectedInvoice.summary.paidAmount) }}
               </p>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">Saldo</p>
-              <p class="metric-value mt-1 font-semibold">${{ formatCurrency(balancePendiente) }}</p>
+              <p class="metric-value mt-1 font-semibold">${{ formatMoneyForDisplay(selectedInvoice.summary.balance) }}</p>
             </div>
           </div>
 
-          <div v-if="balancePendiente > 0" class="space-y-4 rounded-xl border p-4">
+          <p v-if="isLoadingPayments" role="status">Cargando historial de abonos…</p>
+          <div v-else-if="paymentsLoadError" role="alert" class="space-y-2">
+            <p>No se pudo actualizar el historial de abonos.</p>
+            <Button variant="outline" @click="loadPayments(selectedInvoice)">Reintentar consulta</Button>
+          </div>
+          <div v-else-if="selectedInvoice.summary.balance !== '0.00'" class="space-y-4 rounded-xl border p-4">
             <h3 class="section-title">Registrar abono</h3>
             <div class="grid gap-4 sm:grid-cols-2">
               <div class="space-y-2">
@@ -829,10 +827,12 @@ onMounted(() => {
                 <label for="payment-amount" class="field-label">Monto</label>
                 <input
                   id="payment-amount"
-                  v-model.number="newPayment.amount"
+                  :value="newPayment.amount"
                   type="number"
-                  min="1"
+                  min="0.01"
+                  step="0.01"
                   class="form-control"
+                  @input="newPayment.amount = ($event.target as HTMLInputElement).value"
                 />
               </div>
             </div>
@@ -845,10 +845,10 @@ onMounted(() => {
                 placeholder="Ej. Transferencia 12345"
               />
             </div>
-            <Button class="w-full" @click="savePayment">Guardar abono</Button>
+            <Button class="w-full" :disabled="isSavingPayment || isDeleting" @click="savePayment">Guardar abono</Button>
           </div>
 
-          <div class="space-y-3">
+          <div v-if="!paymentsLoadError && !isLoadingPayments" class="space-y-3">
             <h3 class="section-title">Historial</h3>
             <div
               v-if="payments.length === 0"
@@ -863,7 +863,7 @@ onMounted(() => {
                 class="flex items-center justify-between rounded-xl border p-3"
               >
                 <div>
-                  <p class="metric-value font-semibold">${{ formatCurrency(payment.amount) }}</p>
+                  <p class="metric-value font-semibold">${{ formatCurrency(payment.amount, 2) }}</p>
                   <p class="mt-0.5 text-xs text-muted-foreground">
                     {{ formatDate(payment.date) }}
                     <span v-if="payment.notes">· {{ payment.notes }}</span>
@@ -871,10 +871,11 @@ onMounted(() => {
                 </div>
                 <button
                   type="button"
-                  @click="deletePayment(payment.id)"
                   class="icon-button hover:bg-destructive/10 hover:text-destructive"
                   aria-label="Eliminar abono"
                   title="Eliminar abono"
+                  :disabled="isSavingPayment || isDeleting"
+                  @click="deletePayment(payment.id)"
                 >
                   <Trash2 />
                 </button>

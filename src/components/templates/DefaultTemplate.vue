@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Profile, Client, Invoice, InvoiceItem, BankAccount } from '@/types'
-import { formatCurrency } from '@/lib/format'
+import { getPrintedAmounts } from '@/lib/cuentaDeCobroMoney'
 
-defineProps<{
+const props = defineProps<{
   profile: Partial<Profile>
   client: Partial<Client>
   invoice: Partial<Invoice>
@@ -10,6 +11,7 @@ defineProps<{
   bankAccount: BankAccount | null
   signature: string | null
 }>()
+const amounts = computed(() => getPrintedAmounts(props.items, props.invoice.total))
 </script>
 
 <template>
@@ -74,14 +76,14 @@ defineProps<{
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in items" :key="item.id">
+        <tr v-for="item in amounts.rows" :key="item.id">
           <td class="cantidad">{{ item.quantity }}</td>
           <td class="descripcion">{{ item.description }}</td>
           <td class="valor-unitario currency">
-            {{ formatCurrency(item.price, 2) }}
+            {{ item.price }}
           </td>
           <td class="total currency">
-            {{ formatCurrency(item.quantity * item.price, 2) }}
+            {{ item.subtotal }}
           </td>
         </tr>
 
@@ -96,7 +98,7 @@ defineProps<{
     </table>
 
     <div class="subtotal-section">
-      <div class="subtotal-line">Subtotal: {{ formatCurrency(invoice.total, 2) }}</div>
+      <div class="subtotal-line">Subtotal: {{ amounts.total }}</div>
     </div>
 
     <div v-if="bankAccount" class="pago-section">
@@ -111,7 +113,7 @@ defineProps<{
     </div>
 
     <div class="total-line">
-      <strong>TOTAL: {{ formatCurrency(invoice.total, 2) }}</strong>
+      <strong>TOTAL: {{ amounts.total }}</strong>
     </div>
 
     <div class="concepto-section">

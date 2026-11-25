@@ -1,0 +1,69 @@
+[package]
+name = "cuenta-cobro"
+version = "2.0.0"
+description = "Aplicación de escritorio para la gestión de cuentas de cobro colombianas"
+authors = ["necro304 <necro304@users.noreply.github.com>"]
+license = "MIT"
+repository = "https://github.com/necro304/cuenta_de_cobro_escritorio"
+homepage = "https://github.com/necro304/cuenta_de_cobro_escritorio"
+edition = "2024"
+# Máximo rust-version declarado en el grafo de dependencias (tauri 2.12.x).
+rust-version = "1.90"
+publish = false
+# Hay dos binarios (la app y src/bin/cuentacobro-cli.rs, que va en los instaladores): `cargo run`,
+# que usa tauri dev, arranca la app.
+default-run = "cuenta-cobro"
+
+[lib]
+# Los tests de integración (tests/*.rs) importan `cuentacobro_lib`.
+name = "cuentacobro_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-log = "2.10.2"
+tauri-plugin-process = "2.4.0"
+tauri-plugin-single-instance = "2.5.5"
+tauri-plugin-updater = "2.14.1"
+tauri-plugin-window-state = "2.5.0"
+log = "0.4.35"
+rusqlite = { version = "0.42.0", features = ["bundled", "backup"] }
+tempfile = "3.27.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+num-bigint = "0.4.8"
+num-traits = "0.2.19"
+ryu-js = "1.0.3"
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
+unicode-normalization = "0.1.26"
+tokio = { version = "1.54.1", features = ["time", "sync"] }
+# Solo para la CLI: la misma carpeta de datos que app_data_dir() de Tauri.
+dirs = "7.0.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.5"
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSURL", "NSGeometry", "NSDictionary", "NSObject"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSPrintInfo", "NSPrintOperation", "NSView", "NSResponder", "NSWindow"] }
+objc2-web-kit = { version = "0.3.2", default-features = false, features = ["std", "objc2-app-kit", "WKWebView", "WKWebViewConfiguration", "WKPreferences"] }
+
+[target.'cfg(windows)'.dependencies]
+same-file = "1.0.6"
+webview2-com = "0.39.1"
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+# PATH del usuario para la CLI (src/cli_install.rs).
+winreg = "0.56.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "2.0.2", features = ["v2_38"] }
+gtk = "0.18.2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+# panic se deja en "unwind" (por defecto): un panic dentro de un comando async no tumba la app.
